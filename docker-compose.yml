@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./data:/data
+    environment:
+      DATABASE_PATH: /data/nutrirank.sqlite
+    env_file:
+      - path: .env.local
+        required: false

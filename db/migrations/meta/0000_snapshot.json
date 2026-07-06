@@ -1,0 +1,660 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "02c41e1a-323d-4a0d-9696-3321c51ba41c",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "category_agg_snapshot": {
+      "name": "category_agg_snapshot",
+      "columns": {
+        "snapshot_date": {
+          "name": "snapshot_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_count": {
+          "name": "product_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "avg_health_score": {
+          "name": "avg_health_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "grade_a": {
+          "name": "grade_a",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "grade_b": {
+          "name": "grade_b",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "grade_c": {
+          "name": "grade_c",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "grade_d": {
+          "name": "grade_d",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "grade_e": {
+          "name": "grade_e",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "avg_sugars_g": {
+          "name": "avg_sugars_g",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "avg_sodium_mg": {
+          "name": "avg_sodium_mg",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "avg_satfat_g": {
+          "name": "avg_satfat_g",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "category_agg_snapshot_category_id_consumer_category_id_fk": {
+          "name": "category_agg_snapshot_category_id_consumer_category_id_fk",
+          "tableFrom": "category_agg_snapshot",
+          "tableTo": "consumer_category",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "category_agg_snapshot_snapshot_date_category_id_pk": {
+          "columns": [
+            "snapshot_date",
+            "category_id"
+          ],
+          "name": "category_agg_snapshot_snapshot_date_category_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "category_ranking": {
+      "name": "category_ranking",
+      "columns": {
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "food_code": {
+          "name": "food_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rank": {
+          "name": "rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "health_score": {
+          "name": "health_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_ranking_cat_rank": {
+          "name": "idx_ranking_cat_rank",
+          "columns": [
+            "category_id",
+            "rank"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "category_ranking_category_id_consumer_category_id_fk": {
+          "name": "category_ranking_category_id_consumer_category_id_fk",
+          "tableFrom": "category_ranking",
+          "tableTo": "consumer_category",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "category_ranking_food_code_product_food_code_fk": {
+          "name": "category_ranking_food_code_product_food_code_fk",
+          "tableFrom": "category_ranking",
+          "tableTo": "product",
+          "columnsFrom": [
+            "food_code"
+          ],
+          "columnsTo": [
+            "food_code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "category_ranking_category_id_food_code_pk": {
+          "columns": [
+            "category_id",
+            "food_code"
+          ],
+          "name": "category_ranking_category_id_food_code_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "consumer_category": {
+      "name": "consumer_category",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_type": {
+          "name": "product_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "display_order": {
+          "name": "display_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "consumer_category_product_type_check": {
+          "name": "consumer_category_product_type_check",
+          "value": "\"consumer_category\".\"product_type\" IN ('beverage','solid')"
+        }
+      }
+    },
+    "grade_result": {
+      "name": "grade_result",
+      "columns": {
+        "food_code": {
+          "name": "food_code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "gradable": {
+          "name": "gradable",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ungradable_reason": {
+          "name": "ungradable_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "health_score": {
+          "name": "health_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "health_grade": {
+          "name": "health_grade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rationale": {
+          "name": "rationale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "algorithm_version": {
+          "name": "algorithm_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_grade_grade": {
+          "name": "idx_grade_grade",
+          "columns": [
+            "health_grade"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "grade_result_food_code_product_food_code_fk": {
+          "name": "grade_result_food_code_product_food_code_fk",
+          "tableFrom": "grade_result",
+          "tableTo": "product",
+          "columnsFrom": [
+            "food_code"
+          ],
+          "columnsTo": [
+            "food_code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "grade_result_health_grade_check": {
+          "name": "grade_result_health_grade_check",
+          "value": "\"grade_result\".\"health_grade\" IN ('A','B','C','D','E')"
+        }
+      }
+    },
+    "mfds_category_map": {
+      "name": "mfds_category_map",
+      "columns": {
+        "mfds_level": {
+          "name": "mfds_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mfds_code": {
+          "name": "mfds_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mfds_name": {
+          "name": "mfds_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "map_version": {
+          "name": "map_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "mfds_category_map_category_id_consumer_category_id_fk": {
+          "name": "mfds_category_map_category_id_consumer_category_id_fk",
+          "tableFrom": "mfds_category_map",
+          "tableTo": "consumer_category",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "mfds_category_map_mfds_level_mfds_code_pk": {
+          "columns": [
+            "mfds_level",
+            "mfds_code"
+          ],
+          "name": "mfds_category_map_mfds_level_mfds_code_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "mfds_category_map_level_check": {
+          "name": "mfds_category_map_level_check",
+          "value": "\"mfds_category_map\".\"mfds_level\" IN ('sub','detail')"
+        }
+      }
+    },
+    "product": {
+      "name": "product",
+      "columns": {
+        "food_code": {
+          "name": "food_code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "manufacturer": {
+          "name": "manufacturer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "reference_raw": {
+          "name": "reference_raw",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "product_type": {
+          "name": "product_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfds_l1_code": {
+          "name": "mfds_l1_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfds_l1_name": {
+          "name": "mfds_l1_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfds_l2_code": {
+          "name": "mfds_l2_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfds_l2_name": {
+          "name": "mfds_l2_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfds_l3_code": {
+          "name": "mfds_l3_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfds_l3_name": {
+          "name": "mfds_l3_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfds_l4_code": {
+          "name": "mfds_l4_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mfds_l4_name": {
+          "name": "mfds_l4_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "serving_ref": {
+          "name": "serving_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "data_gen_date": {
+          "name": "data_gen_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ingested_at": {
+          "name": "ingested_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_product_category": {
+          "name": "idx_product_category",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "product_category_id_consumer_category_id_fk": {
+          "name": "product_category_id_consumer_category_id_fk",
+          "tableFrom": "product",
+          "tableTo": "consumer_category",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "product_product_type_check": {
+          "name": "product_product_type_check",
+          "value": "\"product\".\"product_type\" IN ('beverage','solid')"
+        }
+      }
+    },
+    "product_nutrient": {
+      "name": "product_nutrient",
+      "columns": {
+        "food_code": {
+          "name": "food_code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "energy_kcal": {
+          "name": "energy_kcal",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sugars_g": {
+          "name": "sugars_g",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "satfat_g": {
+          "name": "satfat_g",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sodium_mg": {
+          "name": "sodium_mg",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fiber_g": {
+          "name": "fiber_g",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "protein_g": {
+          "name": "protein_g",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "product_nutrient_food_code_product_food_code_fk": {
+          "name": "product_nutrient_food_code_product_food_code_fk",
+          "tableFrom": "product_nutrient",
+          "tableTo": "product",
+          "columnsFrom": [
+            "food_code"
+          ],
+          "columnsTo": [
+            "food_code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

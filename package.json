@@ -1,0 +1,43 @@
+{
+  "name": "nutrirank",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx db/migrate.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "ingest": "tsx scripts/ingest/index.ts",
+    "build:ingest": "esbuild scripts/ingest/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/ingest.mjs --external:better-sqlite3 --external:drizzle-orm --external:drizzle-orm/*"
+  },
+  "dependencies": {
+    "next": "^15",
+    "react": "^19",
+    "react-dom": "^19",
+    "drizzle-orm": "latest",
+    "better-sqlite3": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/better-sqlite3": "latest",
+    "drizzle-kit": "latest",
+    "esbuild": "latest",
+    "tsx": "latest",
+    "vitest": "latest",
+    "@playwright/test": "latest",
+    "tailwindcss": "^3",
+    "postcss": "latest",
+    "autoprefixer": "latest"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3"]
+  }
+}

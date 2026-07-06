@@ -34,3 +34,10 @@ pnpm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# typescript / next generated
+*.tsbuildinfo
+next-env.d.ts
+
+# omc operational artifacts (plans/state/logs live here locally; not version-controlled)
+.omc/
