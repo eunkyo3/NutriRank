@@ -126,11 +126,11 @@ docker run -p 3000:3000 -v "$(pwd)/data:/data" -e DATA_GO_KR_SERVICE_KEY=... nut
 
 - [x] 프로젝트 스캐폴드 (Next.js · Drizzle · SQLite · Docker)
 - [x] 데이터 모델 마이그레이션 + 소비자 카테고리 시드 (`pnpm db:seed`) — 식약처 분류 매핑 시드는 데이터 적재 후 큐레이션 예정
-- [ ] 건강 등급 산출 (2023 Nutri-Score 변형)
+- [x] 건강 등급 산출 (2023 Nutri-Score 변형) — 공식 임계값 1차 출처 전사 + 골든 케이스 검증
 - [ ] 데이터 파이프라인 (공개 데이터 수집·적재)
 - [ ] 화면 (검색 · 상세 · 순위 · 대시보드)
 
-> `lib/grading`, `scripts/ingest`, `app/*` 페이지는 현재 스텁이며 위 로드맵에 따라 구현됩니다.
+> `scripts/ingest`, `app/*` 페이지는 현재 스텁이며 위 로드맵에 따라 구현됩니다. `lib/grading`은 구현·검증 완료.
 
 ## 라이선스
 
