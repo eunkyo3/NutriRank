@@ -27,5 +27,9 @@ export function getWriteDb() {
   mkdirSync(dirname(dbPath()), { recursive: true });
   const sqlite = new Database(dbPath(), { readonly: false, fileMustExist: false });
   sqlite.pragma("journal_mode = WAL");
+  // better-sqlite3 leaves FK enforcement OFF by default; enable it so the
+  // schema's references (product_nutrient→product, category_ranking→category,
+  // etc.) actually reject orphan rows on the sole writer path (ADR-0004).
+  sqlite.pragma("foreign_keys = ON");
   return drizzle(sqlite, { schema });
 }

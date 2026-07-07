@@ -10,6 +10,7 @@
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx db/migrate.ts",
+    "db:seed": "tsx db/seed.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "ingest": "tsx scripts/ingest/index.ts",
