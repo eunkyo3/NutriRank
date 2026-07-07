@@ -1,12 +1,7 @@
-// 홈 — mvp-scope-screens.md §3 (라우트 맵), §11 (홈 화면 기본안: 카테고리+검색 진입)
-const categories = [
-  { id: 'carbonated', label: '탄산음료' },
-  { id: 'juice', label: '주스' },
-  { id: 'coffee', label: '커피음료' },
-  { id: 'snack-chip', label: '스낵/칩' },
-  { id: 'chocolate', label: '초콜릿' },
-  { id: 'biscuit', label: '비스킷' },
-]
+// 홈 — mvp-scope-screens.md §3 (라우트 맵), §11 (홈 화면 기본안: 카테고리+검색 진입).
+// 카테고리는 시드(폐쇄 목록 6종)를 단일 출처로 사용해 순위 링크 id 불일치를 방지한다.
+import { CONSUMER_CATEGORY_SEED } from '@/db/seed'
+import { productTypeLabel } from '@/lib/display'
 
 export default function HomePage() {
   return (
@@ -27,13 +22,16 @@ export default function HomePage() {
       <section>
         <h2 className="text-lg font-semibold">카테고리별 순위</h2>
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {categories.map((category) => (
+          {CONSUMER_CATEGORY_SEED.map((category) => (
             <li key={category.id}>
               <a
                 href={`/rankings/${category.id}`}
                 className="block rounded border border-gray-200 px-4 py-3 text-center hover:bg-gray-50"
               >
-                {category.label}
+                <span className="font-medium">{category.name}</span>
+                <span className="mt-0.5 block text-xs text-gray-500">
+                  {productTypeLabel(category.productType)}
+                </span>
               </a>
             </li>
           ))}

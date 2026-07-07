@@ -1,10 +1,12 @@
 // SQLite connection helpers (ADR-0004: app reads pre-computed tables read-only,
 // the ingest/grading batch is the sole writer).
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
+
+export type ReadDb = ReturnType<typeof getReadDb>;
 
 const DEFAULT_DB_PATH = "./data/nutrirank.sqlite";
 
@@ -18,6 +20,24 @@ function dbPath(): string {
 export function getReadDb() {
   const sqlite = new Database(dbPath(), { readonly: true, fileMustExist: true });
   return drizzle(sqlite, { schema });
+}
+
+// Like getReadDb but returns null when the DB file does not exist yet (the ingest
+// batch has not run). Lets screens render a "데이터 준비 중" empty state instead of
+// crashing before the first pipeline run.
+//
+// The connection is memoized: a read-only WAL connection is reused across
+// requests (avoids leaking a handle per RSC render), and it still sees each new
+// committed snapshot because the ingest batch swaps data in-place on the same
+// file. null is not cached, so the first successful ingest is picked up without a
+// restart.
+let cachedReadDb: ReadDb | null = null;
+
+export function tryGetReadDb(): ReadDb | null {
+  if (cachedReadDb) return cachedReadDb;
+  if (!existsSync(dbPath())) return null;
+  cachedReadDb = getReadDb();
+  return cachedReadDb;
 }
 
 // Batch write path (db:migrate, scripts/ingest). WAL mode keeps concurrent
