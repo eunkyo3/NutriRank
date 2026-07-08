@@ -18,6 +18,13 @@ COPY . .
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate \
     && pnpm build \
     && pnpm build:ingest
+# better-sqlite3's transitive native deps (bindings → file-uri-to-path) are loaded
+# via a dynamic require that Next's tracer can't follow through pnpm's symlinked
+# store, so they're pruned from the standalone bundle. Stage them dereferenced
+# (cp -RL) for the runner to drop at top-level node_modules where require() finds them.
+RUN mkdir -p /native \
+    && cp -RL node_modules/.pnpm/bindings@*/node_modules/bindings /native/bindings \
+    && cp -RL node_modules/.pnpm/file-uri-to-path@*/node_modules/file-uri-to-path /native/file-uri-to-path
 
 # ---- runner ----
 FROM node:22-slim AS runner
@@ -26,6 +33,9 @@ ENV NODE_ENV=production
 ENV DATABASE_PATH=/data/nutrirank.sqlite
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
+# Native deps better-sqlite3 needs at runtime (see build stage note above).
+COPY --from=build /native/bindings ./node_modules/bindings
+COPY --from=build /native/file-uri-to-path ./node_modules/file-uri-to-path
 # pub[l]ic: glob form so COPY doesn't fail if /public doesn't exist yet
 COPY --from=build /app/pub[l]ic ./public
 # Batch ingest bundle + Drizzle schema/migrations so the batch runs from THIS image
