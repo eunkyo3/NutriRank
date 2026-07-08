@@ -25,17 +25,22 @@ export const CONSUMER_CATEGORY_SEED = [
 export const MFDS_CATEGORY_MAP_SEED = [
   // 음료류 (RTD, 100ml)
   { mfdsLevel: "detail", mfdsCode: "09401", mfdsName: "탄산음료", categoryId: "carbonated" },
+  { mfdsLevel: "detail", mfdsCode: "09402", mfdsName: "탄산수", categoryId: "carbonated" },
   { mfdsLevel: "detail", mfdsCode: "09302", mfdsName: "과·채주스", categoryId: "juice" },
   { mfdsLevel: "detail", mfdsCode: "09303", mfdsName: "과·채음료", categoryId: "juice" },
   { mfdsLevel: "detail", mfdsCode: "09201", mfdsName: "액상커피", categoryId: "coffee" },
-  // 과자류·빵류 또는 떡류 (100g)
+  // 과자류·빵류 또는 떡류 (100g) — 케이크·빵·떡·사탕·젤리는 v1 6개 카테고리 밖이라 제외.
   { mfdsLevel: "detail", mfdsCode: "01103", mfdsName: "비스킷/쿠키/크래커", categoryId: "biscuit" },
+  { mfdsLevel: "detail", mfdsCode: "01105", mfdsName: "웨이퍼", categoryId: "biscuit" },
   { mfdsLevel: "detail", mfdsCode: "01104", mfdsName: "스낵과자", categoryId: "snack_chip" },
   { mfdsLevel: "detail", mfdsCode: "01101", mfdsName: "강냉이/팝콘", categoryId: "snack_chip" },
+  { mfdsLevel: "detail", mfdsCode: "01106", mfdsName: "일반과자", categoryId: "snack_chip" }, // 새우깡 등
+  { mfdsLevel: "detail", mfdsCode: "01107", mfdsName: "전통과자", categoryId: "snack_chip" },
   // 코코아가공품류 또는 초콜릿류 (100g)
   { mfdsLevel: "detail", mfdsCode: "03101", mfdsName: "초콜릿", categoryId: "chocolate" },
   { mfdsLevel: "detail", mfdsCode: "03102", mfdsName: "초콜릿과자", categoryId: "chocolate" },
   { mfdsLevel: "detail", mfdsCode: "03103", mfdsName: "초코파이", categoryId: "chocolate" },
+  { mfdsLevel: "detail", mfdsCode: "03203", mfdsName: "기타 코코아가공품", categoryId: "chocolate" },
 ] as const;
 
 type WriteDb = ReturnType<typeof getWriteDb>;
@@ -64,7 +69,7 @@ export function seedConsumerCategories(db: WriteDb): number {
 
 // Upsert mapping rows by PK (mfdsLevel, mfdsCode). mapVersion bumps when the
 // curation changes (data-model §4 재큐레이션 추적). Returns the row count.
-export function seedMfdsCategoryMap(db: WriteDb, mapVersion = 1): number {
+export function seedMfdsCategoryMap(db: WriteDb, mapVersion = 2): number {
   db.transaction((tx) => {
     for (const row of MFDS_CATEGORY_MAP_SEED) {
       tx.insert(mfdsCategoryMap)

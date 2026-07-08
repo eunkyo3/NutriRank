@@ -7,6 +7,10 @@ services:
       - ./data:/data
     environment:
       DATABASE_PATH: /data/nutrirank.sqlite
+      # Next standalone binds to $HOSTNAME; pin 0.0.0.0 so it never depends on
+      # resolving the container's own hostname (avoids getaddrinfo EAI_AGAIN when
+      # Docker's embedded DNS is flaky).
+      HOSTNAME: 0.0.0.0
       # On-demand 검색 캐시용. compose가 프로젝트 .env 에서 키를 보간해 주입한다
       # (없으면 온디맨드 조회는 비활성, 로컬 검색만 동작).
       DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:-}
