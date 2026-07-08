@@ -24,10 +24,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# db (로컬 SQLite)
+# db (로컬 SQLite + WAL 사이드카)
+/data/
 *.sqlite
 *.sqlite3
 *.db
+*.sqlite-wal
+*.sqlite-shm
 
 # os / editor
 .DS_Store
