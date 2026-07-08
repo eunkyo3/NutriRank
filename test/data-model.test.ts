@@ -7,9 +7,14 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { describe, expect, it } from "vitest";
-import { CONSUMER_CATEGORY_SEED, seedConsumerCategories } from "@/db/seed";
+import {
+  CONSUMER_CATEGORY_SEED,
+  MFDS_CATEGORY_MAP_SEED,
+  seedConsumerCategories,
+  seedMfdsCategoryMap,
+} from "@/db/seed";
 import * as schema from "@/db/schema";
-import { consumerCategory, product, productNutrient } from "@/db/schema";
+import { consumerCategory, mfdsCategoryMap, product, productNutrient } from "@/db/schema";
 
 // Fresh :memory: DB with db/migrations applied — proves the migration is
 // reproducible (§10.1) and isolates every assertion from shared state.
@@ -97,6 +102,31 @@ describe("consumer_category seed (§3, §8)", () => {
     for (const types of byId.values()) {
       expect(types.size).toBe(1);
     }
+  });
+});
+
+describe("mfds_category_map seed (§4 curation)", () => {
+  it("seeds the curated 식품유형 → category mappings, all FK-valid", () => {
+    const db = freshDb();
+    seedConsumerCategories(db); // FK parents
+    const n = seedMfdsCategoryMap(db);
+    expect(n).toBe(MFDS_CATEGORY_MAP_SEED.length);
+
+    const rows = db.select().from(mfdsCategoryMap).all();
+    expect(rows).toHaveLength(MFDS_CATEGORY_MAP_SEED.length);
+    // Every mapped category id is one of the 6 seeded consumer categories.
+    const validIds = new Set<string>(CONSUMER_CATEGORY_SEED.map((c) => c.id));
+    for (const r of rows) expect(validIds.has(r.categoryId)).toBe(true);
+    // The v1 anchor codes cover all 6 categories.
+    expect(new Set(rows.map((r) => r.categoryId)).size).toBe(6);
+  });
+
+  it("is idempotent — re-seeding keeps the same row count", () => {
+    const db = freshDb();
+    seedConsumerCategories(db);
+    seedMfdsCategoryMap(db);
+    seedMfdsCategoryMap(db);
+    expect(db.select().from(mfdsCategoryMap).all()).toHaveLength(MFDS_CATEGORY_MAP_SEED.length);
   });
 });
 

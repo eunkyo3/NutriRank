@@ -57,9 +57,9 @@ function rec(over: Partial<SourceRecord>): SourceRecord {
   };
 }
 
-// Cola (beverage, maps to carbonated) → score 12 → E.
+// Cola (beverage, maps to carbonated via 식품유형 anchor) → score 12 → E.
 const COLA_NEW = rec({
-  foodCode: "P1", name: "콜라", referenceRaw: "100ml", mfdsL4Code: "0101", mfdsL4Name: "탄산음료",
+  foodCode: "P1", name: "콜라", referenceRaw: "100ml", mfdsL2Code: "0101", mfdsL2Name: "탄산음료",
   energyKcalRaw: "43", sugarsRaw: "10.6", satfatRaw: "0", sodiumRaw: "0", fiberRaw: "0", proteinRaw: "0",
   dataGenDate: "2025-06-01",
 });
@@ -67,14 +67,14 @@ const COLA_NEW = rec({
 const COLA_OLD = rec({ ...COLA_NEW, sugarsRaw: "99", dataGenDate: "2024-01-01" });
 // Healthy snack (solid, snack_chip) → score −3 → A.
 const SNACK = rec({
-  foodCode: "P2", name: "건강스낵", referenceRaw: "100g", mfdsL4Code: "0201", mfdsL4Name: "감자칩",
+  foodCode: "P2", name: "건강스낵", referenceRaw: "100g", mfdsL2Code: "0201", mfdsL2Name: "감자칩",
   energyKcalRaw: "70", sugarsRaw: "2", satfatRaw: "0.5", sodiumRaw: "40", fiberRaw: "4", proteinRaw: "5",
 });
 // Unmapped 세분류 → filtered out, reported.
-const UNMAPPED = rec({ foodCode: "P3", name: "라면", referenceRaw: "100g", mfdsL4Code: "9999", mfdsL4Name: "유탕면" });
+const UNMAPPED = rec({ foodCode: "P3", name: "라면", referenceRaw: "100g", mfdsL2Code: "9999", mfdsL2Name: "유탕면" });
 // Snack with blank sugars → 미측정 → ungradable, excluded from ranking.
 const MISSING = rec({
-  foodCode: "P4", name: "미측정스낵", referenceRaw: "100g", mfdsL4Code: "0201",
+  foodCode: "P4", name: "미측정스낵", referenceRaw: "100g", mfdsL2Code: "0201",
   energyKcalRaw: "100", sugarsRaw: "", satfatRaw: "5", sodiumRaw: "100", fiberRaw: "0", proteinRaw: "2",
 });
 

@@ -26,9 +26,16 @@ async function main() {
   const ingestedAt = now.toISOString();
   const snapshotDate = ingestedAt.slice(0, 10);
 
+  // numOfRows: 1000 is slow for this API; 200 is a safe default. INGEST_MAX_PAGES
+  // bounds a partial/sample snapshot (e.g. for a first live verification); unset =
+  // full dataset.
+  const perPage = Number.parseInt(process.env.INGEST_PER_PAGE ?? "200", 10)
+  const maxPagesRaw = process.env.INGEST_MAX_PAGES
+  const maxPages = maxPagesRaw ? Number.parseInt(maxPagesRaw, 10) : undefined
+
   const db = getWriteDb();
   const adapter = new DataGoKr15100066Adapter({ serviceKey, endpoint });
-  const report = await runIngest({ adapter, db, ingestedAt, snapshotDate });
+  const report = await runIngest({ adapter, db, ingestedAt, snapshotDate, perPage, maxPages });
 
   // Print the quality report (no secrets); truncate the unmapped list.
   console.log(JSON.stringify({ ...report, unmapped: report.unmapped.slice(0, 20) }, null, 2));

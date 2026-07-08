@@ -100,6 +100,12 @@ describe("evaluateQualityGate — swap-blocking checks (§8)", () => {
   it("uses the documented defaults (20% drop, 5% missing)", () => {
     expect(DEFAULT_GATE_CONFIG).toEqual({ maxDropRatio: 0.2, maxRequiredMissingRate: 0.05 });
   });
+
+  it("skips the count-mismatch check for a deliberate partial sample", () => {
+    const r = evaluateQualityGate({ ...ok, collectedCount: 200, totalCount: 590542, partial: true });
+    expect(r.pass).toBe(true);
+    expect(r.reasons.some((x) => x.startsWith("count_mismatch"))).toBe(false);
+  });
 });
 
 describe("computeCategoryRankings — score asc, gapless rank (§10, ADR-0003)", () => {

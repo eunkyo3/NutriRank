@@ -1,7 +1,12 @@
 // Category mapping + v1 filter (.omc/plans/data-pipeline-spec.md §6; data-model §4).
-// 식품세분류코드(detail) is the primary anchor; 식품소분류코드(sub) is the fallback.
-// Unmapped products (음료·과자 밖) are filtered out but their 세분류 is reported so
-// it can seed the next curation round.
+//
+// Anchor levels (adapted to the real 15100066 taxonomy, 2026-07-07): the consumer
+// category is discriminated by 식품유형 = foodLv4 (stored in mfdsL2), because the
+// finer foodLv5–7 levels are frequently "해당없음". So the PRIMARY anchor is
+// 식품유형 (mfdsL2, level='detail') and the FALLBACK is 군 = foodLv3 (mfdsL1,
+// level='sub'). (data-model §4 assumed 세분류/소분류 anchors before the live
+// taxonomy was known; this is the corrected mapping.) Unmapped products (음료·과자
+// 밖) are filtered out, and their 식품유형 is reported for the next curation round.
 import { mfdsCategoryMap } from "@/db/schema";
 import type { Db } from "./persist";
 import type { NormalizedPair } from "./source";
@@ -19,15 +24,16 @@ export function loadCategoryMap(db: Db): CategoryLookup {
   return map;
 }
 
-// Resolve a product's consumer category: detail anchor first, then sub fallback.
+// Resolve a product's consumer category: 식품유형(detail) anchor first, then
+// 군(sub) fallback.
 export function categoryFor(pair: NormalizedPair, lookup: CategoryLookup): string | null {
-  const { mfdsL4Code, mfdsL3Code } = pair.product;
-  if (mfdsL4Code) {
-    const detail = lookup.get(`detail:${mfdsL4Code}`);
+  const { mfdsL2Code, mfdsL1Code } = pair.product;
+  if (mfdsL2Code) {
+    const detail = lookup.get(`detail:${mfdsL2Code}`);
     if (detail) return detail;
   }
-  if (mfdsL3Code) {
-    const sub = lookup.get(`sub:${mfdsL3Code}`);
+  if (mfdsL1Code) {
+    const sub = lookup.get(`sub:${mfdsL1Code}`);
     if (sub) return sub;
   }
   return null;
@@ -55,9 +61,9 @@ export function applyCategoryMapping(pairs: readonly NormalizedPair[], lookup: C
     if (categoryId !== null) {
       mapped.push({ ...pair, product: { ...pair.product, categoryId } });
     } else {
-      // Key the report by 세분류 code (fall back to 소분류, then "unknown").
-      const code = pair.product.mfdsL4Code ?? pair.product.mfdsL3Code ?? "unknown";
-      const name = pair.product.mfdsL4Name ?? pair.product.mfdsL3Name ?? null;
+      // Key the report by 식품유형 code (fall back to 군, then "unknown").
+      const code = pair.product.mfdsL2Code ?? pair.product.mfdsL1Code ?? "unknown";
+      const name = pair.product.mfdsL2Name ?? pair.product.mfdsL1Name ?? null;
       const existing = unmappedByCode.get(code);
       if (existing) existing.count += 1;
       else unmappedByCode.set(code, { code, name, count: 1 });

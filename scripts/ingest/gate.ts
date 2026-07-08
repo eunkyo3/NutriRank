@@ -8,6 +8,7 @@ export interface GateMetrics {
   loadedCount: number; // v1-filtered products staged
   previousLoadedCount: number | null; // prior live snapshot size; null on first run
   requiredFieldMissingRate: number; // 0..1 over 식품코드·식품명·기준량
+  partial?: boolean; // deliberate bounded sample → skip the full-collection check
 }
 
 export interface GateConfig {
@@ -32,8 +33,9 @@ export function evaluateQualityGate(
 ): GateResult {
   const reasons: string[] = [];
 
-  // Incomplete collection → never swap partial data (§8).
-  if (metrics.collectedCount !== metrics.totalCount) {
+  // Incomplete collection → never swap partial data (§8). Skipped for a
+  // deliberate bounded sample (partial=true), which is an intentional snapshot.
+  if (!metrics.partial && metrics.collectedCount !== metrics.totalCount) {
     reasons.push(
       `count_mismatch:collected=${metrics.collectedCount},total=${metrics.totalCount}`,
     );

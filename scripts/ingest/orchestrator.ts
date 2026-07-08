@@ -23,6 +23,7 @@ export interface IngestOptions {
   ingestedAt: string; // stamped on product.ingested_at / grade computed_at
   snapshotDate: string; // category_agg_snapshot key (e.g. "2026-07-07")
   perPage?: number;
+  maxPages?: number; // bound a deliberate partial/sample snapshot (relaxes count gate)
   previousLoadedCount?: number | null; // overrides the auto-read live count
   gateConfig?: GateConfig;
 }
@@ -49,7 +50,7 @@ export async function runIngest(opts: IngestOptions): Promise<IngestReport> {
   const perPage = opts.perPage ?? 1000;
 
   // [1 fetch]
-  const fetched = await fetchAllRecords(adapter, perPage);
+  const fetched = await fetchAllRecords(adapter, perPage, opts.maxPages);
 
   // [2 normalize]
   const pairs: NormalizedPair[] = fetched.records.map((r) => normalizeRecord(r, ingestedAt));
@@ -76,6 +77,7 @@ export async function runIngest(opts: IngestOptions): Promise<IngestReport> {
       loadedCount: deduped.length,
       previousLoadedCount,
       requiredFieldMissingRate: requiredMissing,
+      partial: opts.maxPages != null,
     },
     opts.gateConfig,
   );

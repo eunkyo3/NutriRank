@@ -1,9 +1,21 @@
 # data.go.kr 15100066 — 전국통합식품영양성분정보(가공식품) 표준데이터 · Open API spec
 
 Researched: 2026-07-07. Primary source: https://www.data.go.kr/data/15100066/standard.do
-Provider: 식품의약품안전처 (MFDS / Korea Food & Drug Administration). Update cycle: 연간(annual). Last modified: 2026-07-01.
+Provider: 식품의약품안전처 (MFDS / Korea Food & Drug Administration).
 
-> IMPORTANT: This standard dataset is reachable via **TWO different Open APIs**. Pick one; they differ in host, param style, field-name language, and envelope. Both were confirmed live (returned HTTP 401 "auth required", i.e. the endpoint exists and just needs a key).
+## ✅ CONFIRMED LIVE ENDPOINT (verified 2026-07-07, NORMAL_SERVICE)
+
+This is the endpoint NutriRank actually uses (`scripts/ingest/adapters/datagokr-15100066.ts`):
+
+- **URL:** `https://api.data.go.kr/openapi/tn_pubr_public_nutri_process_info_api` (GET)
+- **Params:** `serviceKey`, `pageNo`, `numOfRows` (200 is a safe page size; 1000 is slow), `type=json`
+- **Envelope:** `{ response: { header: { resultCode, resultMsg }, body: { totalCount, numOfRows, pageNo, items: [...] } } }`. `resultCode="00"` = NORMAL_SERVICE.
+- **totalCount:** 590,542 rows (all 가공식품). Missing values = empty string `""`; text sentinels = `"해당없음"` (both → 미측정 NULL).
+- **Field map (API key → our field):** `foodCd`→식품코드, `foodNm`→식품명, `mfrNm`→제조사, `nutConSrtrQua`→기준량("100g"/"100ml"), `enerc`→에너지kcal, `sugar`→당류g, `fasat`→포화지방산g, `nat`→나트륨mg, `fibtg`→식이섬유g, `prot`→단백질g, `foodLv3Cd/Nm`→군(mfdsL1), `foodLv4Cd/Nm`→식품유형(mfdsL2, 매핑 앵커), `foodLv5/6`→mfdsL3/L4, `servSize`→1회섭취참고량, `crtYmd`→데이터생성일자.
+- **Classification for mapping:** 식품유형(foodLv4) is the consumer-category anchor (탄산음료=09401, 과·채주스=09302, 액상커피=09201, 비스킷=01103, 스낵과자=01104, 초콜릿=03101, …); foodLv5–7 are frequently "해당없음". Curated map in `db/seed.ts` MFDS_CATEGORY_MAP_SEED.
+- **Server-side filtering:** not supported (field-filter params are ignored) → the pipeline pages through all rows and filters client-side.
+
+> The odcloud alternative documented below was NOT the registered service for our key (returned "등록되지 않은 서비스"); the standard-data endpoint above is the one that works.
 
 ---
 

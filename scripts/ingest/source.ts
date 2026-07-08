@@ -51,16 +51,19 @@ export interface FetchAllResult {
   records: SourceRecord[];
 }
 
-// §4 pagination: walk every page until we have totalCount records. A safety cap
-// guards against a misbehaving source paging forever.
+// §4 pagination: walk every page until we have totalCount records. `maxPages`
+// caps a deliberate partial/sample collection (a bounded snapshot for demos or
+// live verification) — the orchestrator then relaxes the count gate (§8) for it.
 export async function fetchAllRecords(
   adapter: FetchAdapter,
   perPage = 1000,
+  maxPages?: number,
 ): Promise<FetchAllResult> {
   const first = await adapter.fetchPage(1, perPage);
   const totalCount = first.totalCount;
   const records = [...first.records];
-  const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+  let totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+  if (maxPages != null) totalPages = Math.min(totalPages, maxPages);
   for (let page = 2; page <= totalPages; page++) {
     const next = await adapter.fetchPage(page, perPage);
     records.push(...next.records);
