@@ -84,8 +84,14 @@ describe("searchProducts — FTS5 유사어 검색 (§4.1, ≥3자)", () => {
     expect(searchProducts(db, { q: "버터비스" }).map((p) => p.name)).toContain("버터비스킷");
   });
 
-  it("tolerates a typo via shared trigrams (통곡물칩스 → 통곡물칩)", () => {
-    expect(searchProducts(db, { q: "통곡물칩스" }).map((p) => p.name)).toContain("통곡물칩");
+  it("matches an internal substring (곡물칩 → 통곡물칩)", () => {
+    expect(searchProducts(db, { q: "곡물칩" }).map((p) => p.name)).toContain("통곡물칩");
+  });
+
+  it("returns 0 for an unrelated query (strict AND-trigram, no junk)", () => {
+    // No fixture name contains 칠성사이다's trigrams → empty locally, which lets
+    // the on-demand API cache fire in the app instead of showing junk.
+    expect(searchProducts(db, { q: "칠성사이다" })).toHaveLength(0);
   });
 
   it("ranks the closest match first", () => {

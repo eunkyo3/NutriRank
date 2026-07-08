@@ -19,6 +19,9 @@ function dbPath(): string {
 // the DB file to already exist (created by db:migrate / the ingest batch).
 export function getReadDb() {
   const sqlite = new Database(dbPath(), { readonly: true, fileMustExist: true });
+  // Wait briefly instead of erroring if the on-demand search-cache writer holds a
+  // lock (search-ingest.ts is a documented exception to the read-only serving path).
+  sqlite.pragma("busy_timeout = 3000");
   return drizzle(sqlite, { schema });
 }
 
@@ -47,6 +50,7 @@ export function getWriteDb() {
   mkdirSync(dirname(dbPath()), { recursive: true });
   const sqlite = new Database(dbPath(), { readonly: false, fileMustExist: false });
   sqlite.pragma("journal_mode = WAL");
+  sqlite.pragma("busy_timeout = 3000");
   // better-sqlite3 leaves FK enforcement OFF by default; enable it so the
   // schema's references (product_nutrient→product, category_ranking→category,
   // etc.) actually reject orphan rows on the sole writer path (ADR-0004).

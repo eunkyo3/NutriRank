@@ -58,13 +58,16 @@ export function searchProducts(db: Db, filters: ProductSearchFilters): ProductCa
   return searchProductsLike(db, filters);
 }
 
-// Build an FTS5 trigram MATCH query: each 3-gram phrase OR'd together, so a
-// partial/typo query still shares grams with the target and ranks by relevance.
+// Build an FTS5 trigram MATCH query: each 3-gram phrase AND'd together (space =
+// AND in FTS5), so a match requires ALL of the query's trigrams — i.e. a real
+// substring/partial match, not a loose single-gram overlap. AND avoids the junk
+// an OR query returns (e.g. an unrelated product sharing one trigram), and makes
+// a genuine miss return exactly 0 rows so the on-demand search cache can fire.
 function trigramMatchQuery(compact: string): string {
   const grams = new Set<string>();
   for (let i = 0; i + 3 <= compact.length; i++) grams.add(compact.slice(i, i + 3));
   // Phrase-quote each gram (escape embedded quotes) so FTS5 treats it literally.
-  return [...grams].map((g) => `"${g.replace(/"/g, '""')}"`).join(" OR ");
+  return [...grams].map((g) => `"${g.replace(/"/g, '""')}"`).join(" ");
 }
 
 interface RawCard {

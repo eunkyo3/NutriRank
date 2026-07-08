@@ -70,6 +70,22 @@ export class DataGoKr15100066Adapter implements FetchAdapter {
     return { totalCount: body?.totalCount ?? 0, records: (body?.items ?? []).map(mapRow) };
   }
 
+  // On-demand lookup by EXACT 식품명 (foodNm). The API only supports exact-name
+  // matching (partial returns nothing), so this is for caching a product the user
+  // typed by full name that isn't in the local snapshot yet. Returns [] on no match.
+  async fetchByName(name: string, maxRows = 50): Promise<SourceRecord[]> {
+    const url = new URL(this.cfg.endpoint);
+    url.searchParams.set("serviceKey", this.cfg.serviceKey);
+    url.searchParams.set("pageNo", "1");
+    url.searchParams.set("numOfRows", String(maxRows));
+    url.searchParams.set("type", "json");
+    url.searchParams.set("foodNm", name);
+
+    const env = await this.fetchJson(url);
+    if (env.response?.header?.resultCode && env.response.header.resultCode !== "00") return [];
+    return (env.response?.body?.items ?? []).map(mapRow);
+  }
+
   // §4 exponential backoff on transient failures; the key is never logged.
   private async fetchJson(url: URL): Promise<Envelope> {
     const maxRetries = this.cfg.maxRetries ?? 3;

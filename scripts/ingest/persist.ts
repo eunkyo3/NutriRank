@@ -27,7 +27,7 @@ function chunk<T>(rows: readonly T[], size: number): T[][] {
   return out;
 }
 
-function toGradeResult(pair: NormalizedPair, computedAt: string): InferInsertModel<typeof gradeResult> {
+export function toGradeResult(pair: NormalizedPair, computedAt: string): InferInsertModel<typeof gradeResult> {
   const { nutrient, product: p } = pair;
   const productType =
     p.productType === "beverage" || p.productType === "solid" ? p.productType : null;

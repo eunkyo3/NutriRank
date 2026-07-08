@@ -7,6 +7,10 @@ services:
       - ./data:/data
     environment:
       DATABASE_PATH: /data/nutrirank.sqlite
+      # On-demand 검색 캐시용. compose가 프로젝트 .env 에서 키를 보간해 주입한다
+      # (없으면 온디맨드 조회는 비활성, 로컬 검색만 동작).
+      DATA_GO_KR_SERVICE_KEY: ${DATA_GO_KR_SERVICE_KEY:-}
+      DATA_GO_KR_15100066_ENDPOINT: ${DATA_GO_KR_15100066_ENDPOINT:-https://api.data.go.kr/openapi/tn_pubr_public_nutri_process_info_api}
     env_file:
       - path: .env.local
         required: false

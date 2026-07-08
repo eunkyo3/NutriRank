@@ -4,6 +4,7 @@ import { tryGetReadDb } from '@/db/client'
 import { searchProducts, type ProductCard } from '@/db/queries'
 import { CONSUMER_CATEGORY_SEED } from '@/db/seed'
 import { HEALTH_GRADES } from '@/lib/display'
+import { cacheProductsForQuery } from '@/scripts/ingest/on-demand'
 import { DataPendingNotice, EmptyResult, GradeBadge } from '@/app/_components/ui'
 
 type SearchParams = { q?: string; category?: string; type?: string; grade?: string }
@@ -26,7 +27,18 @@ export default async function SearchPage({
 
   const db = tryGetReadDb()
   const hasQuery = Boolean(q || category || productType || grade)
-  const results: ProductCard[] | null = db && hasQuery ? searchProducts(db, { q, categoryId: category, productType, grade }) : null
+  let results: ProductCard[] | null = db && hasQuery ? searchProducts(db, { q, categoryId: category, productType, grade }) : null
+
+  // On-demand 검색 캐시 (ADR-0004 예외): 제품명 검색이 로컬에서 0건이면 공식 API에서
+  // 완전일치로 가져와 등급 산출·저장한 뒤 재조회한다. API 호출은 미스일 때만 발생.
+  let fetchedCount = 0
+  if (q && results && results.length === 0) {
+    fetchedCount = await cacheProductsForQuery(q)
+    if (fetchedCount > 0) {
+      const refreshed = tryGetReadDb()
+      if (refreshed) results = searchProducts(refreshed, { q, categoryId: category, productType, grade })
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -51,12 +63,24 @@ export default async function SearchPage({
         </button>
       </form>
 
+      {fetchedCount > 0 && (
+        <div className="rounded border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
+          공식 데이터에서 {fetchedCount}건을 새로 불러와 저장했습니다.
+        </div>
+      )}
+
       {!db ? (
         <DataPendingNotice />
       ) : !hasQuery ? (
         <EmptyResult message="검색어나 필터를 입력하세요." />
       ) : results && results.length === 0 ? (
-        <EmptyResult message="조건에 맞는 제품이 없습니다." />
+        <EmptyResult
+          message={
+            q
+              ? `'${q}' 에 해당하는 제품을 찾지 못했습니다. 정확한 제품명(예: 코카콜라)으로 검색하면 공식 데이터에서 불러옵니다.`
+              : '조건에 맞는 제품이 없습니다.'
+          }
+        />
       ) : (
         <ul className="space-y-2">
           {results?.map((p) => (
