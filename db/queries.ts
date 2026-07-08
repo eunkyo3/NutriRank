@@ -49,9 +49,61 @@ export interface ProductCard {
   healthScore: number | null;
 }
 
-// §4.1 search: name partial match + category / product-type / grade filters.
-// leftJoin grade_result so ungradable products still appear (shown as "등급 미산출").
+// §4.1 search: 제품명 유사어 검색 + 카테고리 / 제품유형 / 등급 필터. 검색어가
+// 3자 이상이면 FTS5 trigram 인덱스로 부분일치·유사어·오타(OR 트라이그램) 매칭을
+// 관련도 순으로, 2자 이하면 LIKE 부분일치로 처리한다(trigram은 3자 미만 불가).
 export function searchProducts(db: Db, filters: ProductSearchFilters): ProductCard[] {
+  const compact = filters.q?.replace(/\s+/g, "") ?? "";
+  if (compact.length >= 3) return searchProductsFts(db, compact, filters);
+  return searchProductsLike(db, filters);
+}
+
+// Build an FTS5 trigram MATCH query: each 3-gram phrase OR'd together, so a
+// partial/typo query still shares grams with the target and ranks by relevance.
+function trigramMatchQuery(compact: string): string {
+  const grams = new Set<string>();
+  for (let i = 0; i + 3 <= compact.length; i++) grams.add(compact.slice(i, i + 3));
+  // Phrase-quote each gram (escape embedded quotes) so FTS5 treats it literally.
+  return [...grams].map((g) => `"${g.replace(/"/g, '""')}"`).join(" OR ");
+}
+
+interface RawCard {
+  foodCode: string;
+  name: string;
+  manufacturer: string | null;
+  productType: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  gradable: number | null;
+  healthGrade: string | null;
+  healthScore: number | null;
+}
+
+function searchProductsFts(db: Db, compact: string, filters: ProductSearchFilters): ProductCard[] {
+  const conds = [sql`product_fts MATCH ${trigramMatchQuery(compact)}`];
+  if (filters.categoryId) conds.push(sql`p.category_id = ${filters.categoryId}`);
+  if (filters.productType) conds.push(sql`p.product_type = ${filters.productType}`);
+  if (filters.grade) conds.push(sql`gr.health_grade = ${filters.grade}`);
+
+  const rows = db.all(sql`
+    SELECT p.food_code AS foodCode, p.name AS name, p.manufacturer AS manufacturer,
+           p.product_type AS productType, p.category_id AS categoryId,
+           cc.name AS categoryName, gr.gradable AS gradable,
+           gr.health_grade AS healthGrade, gr.health_score AS healthScore
+    FROM product_fts
+    JOIN product p ON p.food_code = product_fts.food_code
+    LEFT JOIN grade_result gr ON gr.food_code = p.food_code
+    LEFT JOIN consumer_category cc ON cc.id = p.category_id
+    WHERE ${sql.join(conds, sql` AND `)}
+    ORDER BY product_fts.rank
+    LIMIT ${filters.limit ?? 100}
+  `) as RawCard[];
+
+  return rows.map((r) => ({ ...r, gradable: r.gradable === 1 }));
+}
+
+// leftJoin grade_result so ungradable products still appear (shown as "등급 미산출").
+function searchProductsLike(db: Db, filters: ProductSearchFilters): ProductCard[] {
   const conditions = [];
   if (filters.q) conditions.push(sql`${product.name} LIKE ${`%${escapeLike(filters.q)}%`} ESCAPE '\\'`);
   if (filters.categoryId) conditions.push(eq(product.categoryId, filters.categoryId));

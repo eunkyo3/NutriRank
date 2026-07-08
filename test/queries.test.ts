@@ -79,6 +79,32 @@ describe("searchProducts (§4.1)", () => {
   });
 });
 
+describe("searchProducts — FTS5 유사어 검색 (§4.1, ≥3자)", () => {
+  it("matches a partial/prefix of a longer name", () => {
+    expect(searchProducts(db, { q: "버터비스" }).map((p) => p.name)).toContain("버터비스킷");
+  });
+
+  it("tolerates a typo via shared trigrams (통곡물칩스 → 통곡물칩)", () => {
+    expect(searchProducts(db, { q: "통곡물칩스" }).map((p) => p.name)).toContain("통곡물칩");
+  });
+
+  it("ranks the closest match first", () => {
+    const names = searchProducts(db, { q: "코카콜라" }).map((p) => p.name);
+    expect(names[0]).toBe("코카콜라");
+  });
+
+  it("combines FTS match with a category filter", () => {
+    const r = searchProducts(db, { q: "비스킷", categoryId: "snack_chip" });
+    expect(r.every((p) => p.categoryId === "snack_chip")).toBe(true);
+    expect(r.map((p) => p.name)).toContain("버터비스킷");
+  });
+
+  it("still uses LIKE for 2-char queries (trigram needs 3)", () => {
+    // "콜라" is 2 chars → LIKE substring path finds both colas.
+    expect(searchProducts(db, { q: "콜라" }).map((p) => p.foodCode).sort()).toEqual(["COLA", "LIGHT"]);
+  });
+});
+
 describe("getProductDetail (§4.2)", () => {
   it("returns grade, nutrient and rank position for a gradable product", () => {
     const d = getProductDetail(db, "COLA");

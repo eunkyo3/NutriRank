@@ -6,7 +6,7 @@
 // without their grades. category_agg_snapshot is trend history, appended
 // separately, never wiped by the swap.
 import type { InferInsertModel } from "drizzle-orm";
-import { eq, isNotNull } from "drizzle-orm";
+import { eq, isNotNull, sql } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { ALGORITHM_VERSION, gradeProduct } from "@/lib/grading";
 import type { HealthGrade } from "@/lib/grading/types";
@@ -100,6 +100,11 @@ export function swapAndRecompute(
     for (const part of chunk(nutrients, 100)) tx.insert(productNutrient).values(part).run();
     for (const part of chunk(gradeRows, 100)) tx.insert(gradeResult).values(part).run();
     for (const part of chunk(rankRows, 100)) tx.insert(categoryRanking).values(part).run();
+    // Rebuild the FTS5 search index from the new snapshot (§4.1 유사어 검색).
+    tx.run(sql`DELETE FROM product_fts`);
+    tx.run(
+      sql`INSERT INTO product_fts (food_code, name, manufacturer) SELECT food_code, name, COALESCE(manufacturer, '') FROM product`,
+    );
   });
 
   return { gradableCount };
