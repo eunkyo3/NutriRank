@@ -33,6 +33,13 @@ async function main() {
   const maxPagesRaw = process.env.INGEST_MAX_PAGES
   const maxPages = maxPagesRaw ? Number.parseInt(maxPagesRaw, 10) : undefined
 
+  // Surface the effective mode so a full run vs a bounded sample is unmistakable
+  // (a leftover INGEST_MAX_PAGES in the shell is the usual "why only 1 page?" cause).
+  console.error(
+    `[ingest] config: perPage=${perPage} maxPages=${maxPages ?? "none(전량)"}` +
+      `${maxPages != null ? " ← 부분 샘플(전량 아님). 전량이면 INGEST_MAX_PAGES 를 해제하세요." : ""}`,
+  )
+
   const db = getWriteDb();
   const adapter = new DataGoKr15100066Adapter({ serviceKey, endpoint });
   const report = await runIngest({ adapter, db, ingestedAt, snapshotDate, perPage, maxPages });

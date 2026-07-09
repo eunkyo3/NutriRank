@@ -60,13 +60,20 @@ export async function fetchAllRecords(
   maxPages?: number,
 ): Promise<FetchAllResult> {
   const first = await adapter.fetchPage(1, perPage);
-  const totalCount = first.totalCount;
+  // totalCount may arrive as a string from the API — coerce so ceil/compare are numeric.
+  const totalCount = Number(first.totalCount) || 0;
   const records = [...first.records];
   let totalPages = Math.max(1, Math.ceil(totalCount / perPage));
   if (maxPages != null) totalPages = Math.min(totalPages, maxPages);
+  console.error(
+    `[ingest] fetch: totalCount=${totalCount} perPage=${perPage} pages=${totalPages}${maxPages != null ? ` (maxPages=${maxPages})` : ""}`,
+  );
   for (let page = 2; page <= totalPages; page++) {
     const next = await adapter.fetchPage(page, perPage);
     records.push(...next.records);
+    if (page % 10 === 0 || page === totalPages) {
+      console.error(`[ingest] fetched page ${page}/${totalPages} (${records.length}/${totalCount})`);
+    }
   }
   return { totalCount, collectedCount: records.length, records };
 }
