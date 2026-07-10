@@ -11,6 +11,7 @@ const navLinks = [
   { href: '/search', label: '검색' },
   { href: '/rankings/carbonated', label: '순위' },
   { href: '/analytics/carbonated', label: '분석' },
+  { href: '/guide', label: '도움말' },
 ]
 
 export default function RootLayout({
