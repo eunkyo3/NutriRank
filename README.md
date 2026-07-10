@@ -176,11 +176,14 @@ mkdir -p data && mv -f nutrirank.sqlite data/nutrirank.sqlite
 **Windows PowerShell**
 ```powershell
 Invoke-WebRequest https://github.com/eunkyo3/NutriRank/releases/latest/download/nutrirank.sqlite.gz -OutFile nutrirank.sqlite.gz
-tar -xzf nutrirank.sqlite.gz          # Windows 10+ 내장 tar 로 gz 해제
 New-Item -ItemType Directory -Force data | Out-Null
-Move-Item nutrirank.sqlite data\nutrirank.sqlite -Force
+# 단일 gzip 파일 해제 (tar 아카이브가 아니라 .NET GzipStream 사용)
+$in=[IO.File]::OpenRead("$PWD\nutrirank.sqlite.gz"); $gz=New-Object IO.Compression.GzipStream($in,[IO.Compression.CompressionMode]::Decompress)
+$out=[IO.File]::Create("$PWD\data\nutrirank.sqlite"); $gz.CopyTo($out); $out.Close(); $gz.Close(); $in.Close()
+Remove-Item nutrirank.sqlite.gz
 ```
 그다음 `docker compose up -d`(또는 `pnpm start`) → 앱이 즉시 전량 데이터를 서빙합니다.
+> 데이터만 보는 데는 API 키가 필요 없습니다(사전계산 파일만 읽음). 키·엔드포인트는 온디맨드 검색 캐시에만 쓰입니다.
 
 ### 새 스냅샷 만들기(관리자용)
 ```bash
