@@ -31,6 +31,7 @@ pnpm-debug.log*
 *.db
 *.sqlite-wal
 *.sqlite-shm
+*.sqlite.gz
 
 # os / editor
 .DS_Store

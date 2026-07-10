@@ -148,6 +148,49 @@ pnpm test          # Vitest 단위 테스트
 pnpm test:e2e      # Playwright e2e
 ```
 
+## 데이터 스냅샷 (배포 · 최신 데이터 받기)
+
+전량 적재한 사전계산 DB(`nutrirank.sqlite` — 제품·영양·건강 등급·순위·집계·검색 인덱스까지 포함)를
+**GitHub Releases**로 배포합니다. 이 파일 하나만 있으면 API 호출 없이 어디서든 즉시 현재 상태를
+재현합니다(SQLite 파일은 OS·아키텍처 무관, 등급 산출은 결정론적).
+
+> 원본이 수십 MB라 **git에 커밋하지 않고** Releases 자산으로 관리합니다(gzip으로 ~11MB).
+
+### 버전 관리 규칙
+- **릴리스 태그**: 적재 시점 날짜 `data-YYYY-MM-DD` (원천이 월별 갱신되므로)
+- **자산 파일명**: 고정 `nutrirank.sqlite.gz` → `releases/latest/download/`로 항상 최신 취득
+- **릴리스 노트**: 적재일 · 총/카테고리별 건수 · gradable 수 · `algorithm_version` · 원천 기준월
+
+| 버전(태그) | 적재일 | 제품 수 | 알고리즘 | 비고 |
+|---|---|---|---|---|
+| `data-2026-07-10` | 2026-07-10 | 48,215 (gradable 48,199) | `nutriscore-2023-v1` | 최초 전량 미러 |
+
+### 최신 데이터 받아 적용하기
+**bash (macOS / Linux)**
+```bash
+curl -L -o nutrirank.sqlite.gz \
+  https://github.com/eunkyo3/NutriRank/releases/latest/download/nutrirank.sqlite.gz
+gunzip -f nutrirank.sqlite.gz
+mkdir -p data && mv -f nutrirank.sqlite data/nutrirank.sqlite
+```
+**Windows PowerShell**
+```powershell
+Invoke-WebRequest https://github.com/eunkyo3/NutriRank/releases/latest/download/nutrirank.sqlite.gz -OutFile nutrirank.sqlite.gz
+tar -xzf nutrirank.sqlite.gz          # Windows 10+ 내장 tar 로 gz 해제
+New-Item -ItemType Directory -Force data | Out-Null
+Move-Item nutrirank.sqlite data\nutrirank.sqlite -Force
+```
+그다음 `docker compose up -d`(또는 `pnpm start`) → 앱이 즉시 전량 데이터를 서빙합니다.
+
+### 새 스냅샷 만들기(관리자용)
+```bash
+pnpm ingest        # 전량 적재 (INGEST_MAX_PAGES 미설정, ~11.5h). Windows는 run-ingest.ps1 참고.
+# WAL 통합 → 단일 파일로 완결
+node -e "const D=require('better-sqlite3');const db=new D('./data/nutrirank.sqlite');db.pragma('wal_checkpoint(TRUNCATE)');db.pragma('journal_mode=DELETE');db.close()"
+gzip -c data/nutrirank.sqlite > nutrirank.sqlite.gz
+# GitHub → Releases → Draft new release → 태그 data-YYYY-MM-DD → nutrirank.sqlite.gz 업로드
+```
+
 ## Docker
 
 ```bash
