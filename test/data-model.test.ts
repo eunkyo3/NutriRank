@@ -28,55 +28,42 @@ function freshDb() {
 }
 
 describe("consumer_category seed (§3, §8)", () => {
-  it("seeds exactly the 6 v1 categories", () => {
+  // 카테고리 목록은 확장된다(v3에서 차음료·캔디/젤리·아이스크림 추가). 개수를 박아두면
+  // 확장할 때마다 테스트가 깨지고 정작 불변식은 검증하지 못하므로, 시드 상수에서 파생한다.
+  it("seeds exactly the declared category set", () => {
     const db = freshDb();
     const n = seedConsumerCategories(db);
-    expect(n).toBe(6);
-    expect(db.select().from(consumerCategory).all()).toHaveLength(6);
+    expect(n).toBe(CONSUMER_CATEGORY_SEED.length);
+    expect(db.select().from(consumerCategory).all()).toHaveLength(CONSUMER_CATEGORY_SEED.length);
   });
 
-  it("assigns each category the product_type from §3", () => {
+  it("assigns each category the product_type the seed declares (ADR-0007: 등급 스케일 결정)", () => {
     const db = freshDb();
     seedConsumerCategories(db);
     const byId = Object.fromEntries(
       db.select().from(consumerCategory).all().map((r) => [r.id, r.productType]),
     );
-    expect(byId).toEqual({
-      carbonated: "beverage",
-      juice: "beverage",
-      coffee: "beverage",
-      snack_chip: "solid",
-      chocolate: "solid",
-      biscuit: "solid",
-    });
+    expect(byId).toEqual(Object.fromEntries(CONSUMER_CATEGORY_SEED.map((c) => [c.id, c.productType])));
   });
 
-  it("assigns each category its declared display_order (gapless 1..6)", () => {
+  it("assigns each category its declared display_order (gapless 1..N)", () => {
     const db = freshDb();
     seedConsumerCategories(db);
-    // Order by display_order and assert the exact id sequence — verifies both
-    // gaplessness AND that each specific category got the order §3 declares.
-    const idsByOrder = db
-      .select()
-      .from(consumerCategory)
-      .orderBy(consumerCategory.displayOrder)
-      .all()
-      .map((r) => r.id);
-    expect(idsByOrder).toEqual([
-      "carbonated",
-      "juice",
-      "coffee",
-      "snack_chip",
-      "chocolate",
-      "biscuit",
-    ]);
+    const rows = db.select().from(consumerCategory).orderBy(consumerCategory.displayOrder).all();
+    // 시드가 선언한 순서와 정확히 일치하는지 + 순번에 구멍이 없는지 둘 다 본다.
+    expect(rows.map((r) => r.id)).toEqual(
+      [...CONSUMER_CATEGORY_SEED].sort((a, b) => a.displayOrder - b.displayOrder).map((c) => c.id),
+    );
+    expect(rows.map((r) => r.displayOrder)).toEqual(
+      Array.from({ length: CONSUMER_CATEGORY_SEED.length }, (_, i) => i + 1),
+    );
   });
 
-  it("is idempotent — re-seeding keeps 6 rows without a PK conflict", () => {
+  it("is idempotent — re-seeding keeps the row count without a PK conflict", () => {
     const db = freshDb();
     seedConsumerCategories(db);
     seedConsumerCategories(db);
-    expect(db.select().from(consumerCategory).all()).toHaveLength(6);
+    expect(db.select().from(consumerCategory).all()).toHaveLength(CONSUMER_CATEGORY_SEED.length);
   });
 
   it("rejects a category whose product_type breaks the CHECK constraint", () => {
@@ -114,11 +101,12 @@ describe("mfds_category_map seed (§4 curation)", () => {
 
     const rows = db.select().from(mfdsCategoryMap).all();
     expect(rows).toHaveLength(MFDS_CATEGORY_MAP_SEED.length);
-    // Every mapped category id is one of the 6 seeded consumer categories.
+    // Every mapped category id is one of the seeded consumer categories.
     const validIds = new Set<string>(CONSUMER_CATEGORY_SEED.map((c) => c.id));
     for (const r of rows) expect(validIds.has(r.categoryId)).toBe(true);
-    // The v1 anchor codes cover all 6 categories.
-    expect(new Set(rows.map((r) => r.categoryId)).size).toBe(6);
+    // 그리고 모든 카테고리에 최소 하나의 앵커 코드가 있어야 한다 — 매핑이 없는
+    // 카테고리는 화면에 영원히 빈 목록으로 남는다(개수 비교보다 강한 불변식).
+    expect(new Set(rows.map((r) => r.categoryId))).toEqual(validIds);
   });
 
   it("is idempotent — re-seeding keeps the same row count", () => {
