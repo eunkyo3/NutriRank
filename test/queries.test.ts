@@ -10,10 +10,11 @@ import {
   getCategories,
   getCategoryAnalytics,
   getCategoryRankings,
+  getOverviewStats,
   getProductDetail,
   searchProducts,
 } from "@/db/queries";
-import { seedConsumerCategories } from "@/db/seed";
+import { CONSUMER_CATEGORY_SEED, seedConsumerCategories } from "@/db/seed";
 import * as schema from "@/db/schema";
 import { snapshotAgg, swapAndRecompute } from "@/scripts/ingest/persist";
 import type { NormalizedPair } from "@/scripts/ingest/source";
@@ -49,9 +50,9 @@ beforeEach(() => {
 });
 
 describe("getCategories", () => {
-  it("returns the 6 seeded categories in display order", () => {
+  it("returns every seeded category in display order", () => {
     const cats = getCategories(db);
-    expect(cats).toHaveLength(6);
+    expect(cats).toHaveLength(CONSUMER_CATEGORY_SEED.length);
     expect(cats[0].id).toBe("carbonated");
   });
 });
@@ -145,6 +146,46 @@ describe("getCategoryRankings (§4.3, §8 AC)", () => {
     // Grade A ranks ahead of grade E.
     expect(rows[0].healthGrade).toBe("A");
     expect(rows[1].healthGrade).toBe("E");
+  });
+
+  // 등급이 한쪽으로 쏠린 카테고리에서 1페이지만 봐서는 변별력이 드러나지 않으므로,
+  // 등급을 좁히거나 최하위부터 보는 경로가 필요하다.
+  it("narrows to a single grade and keeps total consistent with the filter", () => {
+    const onlyE = getCategoryRankings(db, "snack_chip", { grade: "E" });
+    expect(onlyE.total).toBe(1);
+    expect(onlyE.rows.map((r) => r.name)).toEqual(["버터비스킷"]);
+
+    const onlyA = getCategoryRankings(db, "snack_chip", { grade: "A" });
+    expect(onlyA.total).toBe(1);
+    expect(onlyA.rows[0].healthGrade).toBe("A");
+
+    // 해당 등급이 없으면 빈 결과 — 페이지 수 계산이 0으로 떨어져야 한다.
+    expect(getCategoryRankings(db, "snack_chip", { grade: "C" })).toEqual({ rows: [], total: 0 });
+  });
+
+  it("reverses to worst-first without changing the underlying rank numbers", () => {
+    const { rows, total } = getCategoryRankings(db, "snack_chip", { order: "desc" });
+    expect(total).toBe(2);
+    expect(rows.map((r) => [r.name, r.rank])).toEqual([
+      ["버터비스킷", 2],
+      ["통곡물칩", 1],
+    ]);
+  });
+});
+
+describe("getOverviewStats (홈 집계)", () => {
+  it("counts every product but grades only the gradable ones", () => {
+    const s = getOverviewStats(db);
+    expect(s.totalProducts).toBe(PAIRS.length); // UNGRAD 포함
+    expect(s.gradableCount).toBe(PAIRS.length - 1); // UNGRAD 제외
+    expect(s.distribution.reduce((n, d) => n + d.count, 0)).toBe(s.gradableCount);
+  });
+
+  it("buckets gradable products per category for the mini distribution bars", () => {
+    const s = getOverviewStats(db);
+    // snack_chip: 통곡물칩 A, 버터비스킷 E, 미측정칩은 ungradable이라 제외.
+    expect(s.byCategory.snack_chip).toEqual({ A: 1, E: 1 });
+    expect(Object.values(s.byCategory.carbonated ?? {}).reduce((n, c) => n + c, 0)).toBe(2);
   });
 });
 

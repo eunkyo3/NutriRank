@@ -1,6 +1,6 @@
 // Shared presentational components for the MVP screens
 // (.omc/plans/mvp-scope-screens.md §5). Server components — pure rendering.
-import { gradeBadgeClass } from '@/lib/display'
+import { gradeBadgeClass, gradeBarClass, HEALTH_GRADES } from '@/lib/display'
 import type { HealthGrade } from '@/lib/grading/types'
 
 // Grade badge (A~E) with color + letter (accessibility, §5). Null grade (ungradable)
@@ -22,6 +22,39 @@ export function GradeBadge({ grade }: { grade: string | null }) {
     >
       {grade}
     </span>
+  )
+}
+
+// 등급 구성을 한 줄로 보여주는 누적 막대. 카테고리 카드처럼 좁은 자리에서도
+// "이 묶음이 어느 등급에 몰려 있는지"를 즉시 읽히게 한다. 숫자는 title 속성으로만
+// 노출해 좁은 폭에서 글자가 깨지지 않게 했다.
+export function GradeDistributionBar({
+  counts,
+  className = '',
+}: {
+  counts: Record<string, number>
+  className?: string
+}) {
+  const total = HEALTH_GRADES.reduce((s, g) => s + (counts[g] ?? 0), 0)
+  if (total === 0) {
+    return <div className={`h-2 rounded bg-gray-100 ${className}`} />
+  }
+  return (
+    <div className={`flex h-2 overflow-hidden rounded ${className}`}>
+      {HEALTH_GRADES.map((g) => {
+        const c = counts[g] ?? 0
+        if (c === 0) return null
+        const pct = (c / total) * 100
+        return (
+          <div
+            key={g}
+            className={gradeBarClass(g)}
+            style={{ width: `${pct}%` }}
+            title={`${g}등급 ${c.toLocaleString()}개 (${pct.toFixed(1)}%)`}
+          />
+        )
+      })}
+    </div>
   )
 }
 

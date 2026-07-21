@@ -182,11 +182,18 @@ export interface RankingRow {
 }
 
 // §4.3 category ranking: category_ranking ⋈ product ⋈ grade, ORDER BY rank.
+// grade 필터와 정렬 방향을 옵션으로 받는다. 등급이 한쪽으로 쏠린 카테고리(과자·음료는
+// D·E가 대부분)에서는 1페이지만 봐서는 변별력이 드러나지 않으므로, 등급을 좁히거나
+// 최하위부터 보는 경로가 필요하다.
 export function getCategoryRankings(
   db: Db,
   categoryId: string,
-  opts: { limit?: number; offset?: number } = {},
+  opts: { limit?: number; offset?: number; grade?: string; order?: "asc" | "desc" } = {},
 ): { rows: RankingRow[]; total: number } {
+  const conditions = [eq(categoryRanking.categoryId, categoryId)];
+  if (opts.grade) conditions.push(eq(gradeResult.healthGrade, opts.grade));
+  const where = and(...conditions);
+
   const rows = db
     .select({
       rank: categoryRanking.rank,
@@ -200,16 +207,129 @@ export function getCategoryRankings(
     .innerJoin(product, eq(categoryRanking.foodCode, product.foodCode))
     // Ranked ⇒ gradable ⇒ has a grade row; innerJoin keeps the badge non-null.
     .innerJoin(gradeResult, eq(categoryRanking.foodCode, gradeResult.foodCode))
-    .where(eq(categoryRanking.categoryId, categoryId))
-    .orderBy(asc(categoryRanking.rank))
+    .where(where)
+    .orderBy(opts.order === "desc" ? desc(categoryRanking.rank) : asc(categoryRanking.rank))
     .limit(opts.limit ?? 50)
     .offset(opts.offset ?? 0)
     .all();
 
+  // 총계도 같은 조건을 타야 페이지 수가 어긋나지 않는다. 순위 행은 항상 gradable이라
+  // innerJoin이 행을 줄이지 않는다.
   const total =
-    db.select({ c: count() }).from(categoryRanking).where(eq(categoryRanking.categoryId, categoryId)).get()?.c ?? 0;
+    db
+      .select({ c: count() })
+      .from(categoryRanking)
+      .innerJoin(gradeResult, eq(categoryRanking.foodCode, gradeResult.foodCode))
+      .where(where)
+      .get()?.c ?? 0;
 
   return { rows, total };
+}
+
+export interface OverviewStats {
+  totalProducts: number;
+  gradableCount: number;
+  // 전체 등급 분포 (gradable만). 홈에서 A~E 색 축과 쏠림을 한 번에 보여준다.
+  distribution: { grade: string; count: number }[];
+  // categoryId → grade → count. 카테고리 카드의 미니 분포 막대에 쓴다.
+  byCategory: Record<string, Record<string, number>>;
+}
+
+// 홈 화면용 전체 집계. 카테고리 이름·순서는 시드(폐쇄 목록)를 단일 출처로 쓰므로
+// 여기서는 개수만 돌려주고 표시는 호출부가 시드와 합친다.
+export function getOverviewStats(db: Db): OverviewStats {
+  const totalProducts = db.select({ c: count() }).from(product).get()?.c ?? 0;
+
+  const distRows = db
+    .select({ grade: gradeResult.healthGrade, c: count() })
+    .from(gradeResult)
+    .where(eq(gradeResult.gradable, 1))
+    .groupBy(gradeResult.healthGrade)
+    .all();
+
+  const distribution = distRows
+    .filter((r): r is { grade: string; c: number } => r.grade !== null)
+    .map((r) => ({ grade: r.grade, count: r.c }));
+  const gradableCount = distribution.reduce((s, d) => s + d.count, 0);
+
+  const perCategory = db
+    .select({ categoryId: product.categoryId, grade: gradeResult.healthGrade, c: count() })
+    .from(product)
+    .innerJoin(gradeResult, eq(product.foodCode, gradeResult.foodCode))
+    .where(eq(gradeResult.gradable, 1))
+    .groupBy(product.categoryId, gradeResult.healthGrade)
+    .all();
+
+  const byCategory: Record<string, Record<string, number>> = {};
+  for (const row of perCategory) {
+    if (!row.categoryId || !row.grade) continue;
+    (byCategory[row.categoryId] ??= {})[row.grade] = row.c;
+  }
+
+  return { totalProducts, gradableCount, distribution, byCategory };
+}
+
+export interface CategoryComparisonRow {
+  categoryId: string;
+  snapshotDate: string;
+  productCount: number | null;
+  avgHealthScore: number | null;
+  avgSugarsG: number | null;
+  avgSodiumMg: number | null;
+  avgSatfatG: number | null;
+  distribution: Record<string, number>;
+  // D·E 비율(%) — "어느 카테고리가 더 나쁜가"를 한 숫자로 비교하기 위한 파생값.
+  worstShare: number | null;
+}
+
+// 카테고리 비교: 카테고리마다 가장 최근 집계 스냅샷 한 행씩. 실시간 계산 없이
+// category_agg_snapshot만 읽는다(ADR-0004). 적재가 진행 중이면 카테고리별로 최신
+// 스냅샷 일자가 다를 수 있어 snapshotDate를 함께 돌려준다.
+export function getCategoryComparison(db: Db): CategoryComparisonRow[] {
+  const rows = db.all(sql`
+    SELECT s.category_id     AS categoryId,
+           s.snapshot_date   AS snapshotDate,
+           s.product_count   AS productCount,
+           s.avg_health_score AS avgHealthScore,
+           s.avg_sugars_g    AS avgSugarsG,
+           s.avg_sodium_mg   AS avgSodiumMg,
+           s.avg_satfat_g    AS avgSatfatG,
+           s.grade_a AS a, s.grade_b AS b, s.grade_c AS c, s.grade_d AS d, s.grade_e AS e
+    FROM category_agg_snapshot s
+    JOIN (
+      SELECT category_id, MAX(snapshot_date) AS latest
+      FROM category_agg_snapshot
+      GROUP BY category_id
+    ) m ON m.category_id = s.category_id AND m.latest = s.snapshot_date
+  `) as (Omit<CategoryComparisonRow, "distribution" | "worstShare"> & {
+    a: number | null;
+    b: number | null;
+    c: number | null;
+    d: number | null;
+    e: number | null;
+  })[];
+
+  return rows.map((r) => {
+    const distribution: Record<string, number> = {
+      A: r.a ?? 0,
+      B: r.b ?? 0,
+      C: r.c ?? 0,
+      D: r.d ?? 0,
+      E: r.e ?? 0,
+    };
+    const graded = Object.values(distribution).reduce((s, n) => s + n, 0);
+    return {
+      categoryId: r.categoryId,
+      snapshotDate: r.snapshotDate,
+      productCount: r.productCount,
+      avgHealthScore: r.avgHealthScore,
+      avgSugarsG: r.avgSugarsG,
+      avgSodiumMg: r.avgSodiumMg,
+      avgSatfatG: r.avgSatfatG,
+      distribution,
+      worstShare: graded > 0 ? ((distribution.D + distribution.E) / graded) * 100 : null,
+    };
+  });
 }
 
 export interface CategoryAnalytics {

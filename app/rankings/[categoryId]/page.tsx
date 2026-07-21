@@ -5,6 +5,7 @@ import { CONSUMER_CATEGORY_SEED } from '@/db/seed'
 import { getCategory, getCategoryRankings } from '@/db/queries'
 import { tryGetReadDb } from '@/db/client'
 import { DataPendingNotice, EmptyResult, GradeBadge } from '@/app/_components/ui'
+import { HEALTH_GRADES } from '@/lib/display'
 
 const KNOWN_IDS = new Set<string>(CONSUMER_CATEGORY_SEED.map((c) => c.id))
 
@@ -15,35 +16,76 @@ export default async function CategoryRankingPage({
   searchParams,
 }: {
   params: Promise<{ categoryId: string }>
-  searchParams: Promise<{ page?: string }>
+  searchParams: Promise<{ page?: string; grade?: string; order?: string }>
 }) {
   const { categoryId } = await params
   if (!KNOWN_IDS.has(categoryId)) notFound()
 
-  const pageParam = Number.parseInt((await searchParams).page ?? '1', 10)
+  const sp = await searchParams
+  const pageParam = Number.parseInt(sp.page ?? '1', 10)
   const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
+  const grade = HEALTH_GRADES.includes(sp.grade as (typeof HEALTH_GRADES)[number]) ? sp.grade : undefined
+  const order: 'asc' | 'desc' = sp.order === 'desc' ? 'desc' : 'asc'
 
   const db = tryGetReadDb()
   const category = db ? getCategory(db, categoryId) : null
   const ranking = db
-    ? getCategoryRankings(db, categoryId, { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE })
+    ? getCategoryRankings(db, categoryId, {
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+        grade,
+        order,
+      })
     : null
   const label = category?.name ?? CONSUMER_CATEGORY_SEED.find((c) => c.id === categoryId)?.name ?? categoryId
   const totalPages = ranking ? Math.max(1, Math.ceil(ranking.total / PAGE_SIZE)) : 1
+
+  // 필터를 유지한 채 페이지만 바꾸기 위한 링크 빌더.
+  const href = (next: { page?: number; grade?: string | null; order?: string | null }) => {
+    const qs = new URLSearchParams()
+    const g = next.grade === null ? undefined : (next.grade ?? grade)
+    const o = next.order === null ? undefined : (next.order ?? (order === 'desc' ? 'desc' : undefined))
+    if (g) qs.set('grade', g)
+    if (o) qs.set('order', o)
+    if (next.page && next.page > 1) qs.set('page', String(next.page))
+    const s = qs.toString()
+    return `/rankings/${categoryId}${s ? `?${s}` : ''}`
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">카테고리 순위: {label}</h1>
-        <p className="mt-1 text-sm text-gray-500">건강 점수가 낮을수록(건강할수록) 상위입니다.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {order === 'desc'
+            ? '가장 덜 건강한 제품부터 봅니다. 건강 점수가 높을수록 덜 건강합니다.'
+            : '건강 점수가 낮을수록(건강할수록) 상위입니다.'}
+        </p>
       </div>
 
       <CategorySwitcher activeId={categoryId} />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-gray-400">등급</span>
+        <FilterChip href={href({ grade: null, page: 1 })} active={!grade} label="전체" />
+        {HEALTH_GRADES.map((g) => (
+          <FilterChip key={g} href={href({ grade: g, page: 1 })} active={grade === g} label={g} />
+        ))}
+        <span className="ml-2 text-xs text-gray-400">정렬</span>
+        <FilterChip href={href({ order: null, page: 1 })} active={order === 'asc'} label="건강한 순" />
+        <FilterChip href={href({ order: 'desc', page: 1 })} active={order === 'desc'} label="덜 건강한 순" />
+      </div>
+
       {!db ? (
         <DataPendingNotice />
       ) : !ranking || ranking.rows.length === 0 ? (
-        <EmptyResult message="이 카테고리에 순위 데이터가 아직 없습니다." />
+        <EmptyResult
+          message={
+            grade
+              ? `이 카테고리에 ${grade}등급 제품이 없습니다.`
+              : '이 카테고리에 순위 데이터가 아직 없습니다.'
+          }
+        />
       ) : (
         <div>
           <p className="mb-2 text-sm text-gray-500">
@@ -67,7 +109,7 @@ export default async function CategoryRankingPage({
           {totalPages > 1 && (
             <nav className="mt-4 flex items-center justify-between text-sm">
               {page > 1 ? (
-                <a href={`/rankings/${categoryId}?page=${page - 1}`} className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50">
+                <a href={href({ page: page - 1 })} className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50">
                   ← 이전
                 </a>
               ) : (
@@ -75,7 +117,7 @@ export default async function CategoryRankingPage({
               )}
               <span className="text-gray-500">{page} / {totalPages}</span>
               {page < totalPages ? (
-                <a href={`/rankings/${categoryId}?page=${page + 1}`} className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50">
+                <a href={href({ page: page + 1 })} className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50">
                   다음 →
                 </a>
               ) : (
@@ -86,6 +128,19 @@ export default async function CategoryRankingPage({
         </div>
       )}
     </div>
+  )
+}
+
+function FilterChip({ href, active, label }: { href: string; active: boolean; label: string }) {
+  return (
+    <a
+      href={href}
+      className={`inline-block rounded-full border px-3 py-1 text-sm ${
+        active ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+      }`}
+    >
+      {label}
+    </a>
   )
 }
 

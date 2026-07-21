@@ -10,7 +10,9 @@ const navLinks = [
   { href: '/', label: '홈' },
   { href: '/search', label: '검색' },
   { href: '/rankings/carbonated', label: '순위' },
-  { href: '/analytics/carbonated', label: '분석' },
+  // 분석은 카테고리 비교(인덱스)로 진입한다 — 특정 카테고리를 임의로 고르는 것보다
+  // 전체 대조를 먼저 보여주는 편이 자연스럽다.
+  { href: '/analytics', label: '분석' },
   { href: '/guide', label: '도움말' },
 ]
 

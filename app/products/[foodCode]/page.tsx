@@ -6,6 +6,7 @@ import { getProductDetail } from '@/db/queries'
 import {
   formatNutrient,
   productTypeLabel,
+  rankPercentileLabel,
   rationaleToPhrase,
   referenceAmountLabel,
   ungradableReasons,
@@ -34,7 +35,8 @@ export default async function ProductDetailPage({
   const { product, nutrient, grade, categoryName, rank, categoryTotal } = detail
   const gradable = grade?.gradable === 1
   const rationale = rationaleToPhrase(grade?.rationale ?? null)
-  const refLabel = referenceAmountLabel(product.productType)
+  const refLabel = referenceAmountLabel(product.productType, product.referenceRaw)
+  const percentile = rank !== null ? rankPercentileLabel(rank, categoryTotal) : null
 
   return (
     <div className="space-y-6">
@@ -49,11 +51,23 @@ export default async function ProductDetailPage({
       {/* 등급 블록 */}
       <section className="rounded border border-gray-200 p-4">
         {gradable ? (
-          <div className="flex items-center gap-4">
+          <div className="flex items-start gap-4">
             <GradeBadge grade={grade?.healthGrade ?? null} />
-            <div>
-              <p className="text-sm text-gray-500">건강 점수</p>
-              <p className="text-lg font-semibold">{grade?.healthScore}</p>
+            <div className="min-w-0">
+              <p className="text-lg font-semibold">건강 등급 {grade?.healthGrade}</p>
+              {/* "-1"만 두면 좋은지 나쁜지 읽히지 않는다. 카테고리 내 백분위를 앞세우고
+                  원점수는 방향 설명과 함께 보조로 내린다. */}
+              {percentile && product.categoryId && (
+                <p className="mt-0.5 text-sm text-gray-600">
+                  <a href={`/rankings/${product.categoryId}`} className="hover:underline">
+                    {categoryName ?? '카테고리'} {categoryTotal.toLocaleString()}개 중{' '}
+                    <strong>{rank}위</strong> · {percentile}
+                  </a>
+                </p>
+              )}
+              <p className="mt-0.5 text-xs text-gray-400">
+                건강 점수 {grade?.healthScore} · 낮을수록 건강합니다
+              </p>
             </div>
           </div>
         ) : (
@@ -86,16 +100,21 @@ export default async function ProductDetailPage({
         </p>
       </section>
 
-      {/* 순위 위치 */}
-      {rank !== null && product.categoryId && (
-        <section>
-          <h2 className="text-lg font-semibold">카테고리 순위</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            {categoryName ?? product.categoryId} 중{' '}
-            <a href={`/rankings/${product.categoryId}`} className="font-semibold underline">
-              {rank} / {categoryTotal}위
-            </a>
-          </p>
+      {/* 순위는 등급 블록에 통합했다(중복 제거). 여기서는 카테고리 비교로 넘어가는 동선만 둔다. */}
+      {product.categoryId && (
+        <section className="flex flex-wrap gap-2 text-sm">
+          <a
+            href={`/rankings/${product.categoryId}`}
+            className="rounded border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-50"
+          >
+            {categoryName ?? '이 카테고리'} 순위 전체 보기
+          </a>
+          <a
+            href={`/analytics/${product.categoryId}`}
+            className="rounded border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-50"
+          >
+            이 카테고리 분석 보기
+          </a>
         </section>
       )}
     </div>

@@ -17,28 +17,31 @@
     "build:ingest": "esbuild scripts/ingest/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/ingest.mjs --external:better-sqlite3 --external:drizzle-orm --external:drizzle-orm/*"
   },
   "dependencies": {
+    "better-sqlite3": "latest",
+    "drizzle-orm": "latest",
     "next": "^15",
     "react": "^19",
     "react-dom": "^19",
-    "drizzle-orm": "latest",
-    "better-sqlite3": "latest"
+    "recharts": "^3.10.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@playwright/test": "latest",
+    "@types/better-sqlite3": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@types/better-sqlite3": "latest",
+    "autoprefixer": "latest",
     "drizzle-kit": "latest",
     "esbuild": "latest",
-    "tsx": "latest",
-    "vitest": "latest",
-    "@playwright/test": "latest",
-    "tailwindcss": "^3",
     "postcss": "latest",
-    "autoprefixer": "latest"
+    "tailwindcss": "^3",
+    "tsx": "latest",
+    "typescript": "^5",
+    "vitest": "latest"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   }
 }

@@ -5,6 +5,7 @@ import {
   formatNutrient,
   gradeBadgeClass,
   productTypeLabel,
+  rankPercentileLabel,
   rationaleToPhrase,
   referenceAmountLabel,
   ungradableReasons,
@@ -22,6 +23,41 @@ describe("formatNutrient — 미측정 '—' vs measured 0 (§5, §8 AC)", () =>
     expect(formatNutrient(12.3, "g")).toBe("12.3g");
     expect(formatNutrient(150, "mg")).toBe("150mg");
     expect(formatNutrient(null, "g")).toBe("—");
+  });
+
+  // category_agg_snapshot의 SQL AVG 결과는 배정밀도 잔차를 그대로 들고 온다.
+  it("rounds aggregate averages to one decimal instead of dumping float noise", () => {
+    expect(formatNutrient(16.972558209857876)).toBe("17");
+    expect(formatNutrient(15.861111614902173, "g")).toBe("15.9g");
+    expect(formatNutrient(317.92201314894584, "mg")).toBe("317.9mg");
+    expect(formatNutrient(6.498273359540383, "g")).toBe("6.5g");
+  });
+
+  it("keeps whole numbers whole and survives non-finite input", () => {
+    expect(formatNutrient(219, "kcal")).toBe("219kcal");
+    expect(formatNutrient(Number.NaN)).toBe("—");
+    expect(formatNutrient(Number.POSITIVE_INFINITY)).toBe("—");
+  });
+});
+
+// 건강 점수(-1 같은 Nutri-Score 원점수)는 그 자체로 해석이 안 되므로 카테고리 내
+// 백분위로 위치를 알려준다.
+describe("rankPercentileLabel", () => {
+  it("converts a rank within a category into a top-N% label", () => {
+    expect(rankPercentileLabel(54, 13228)).toBe("상위 0.4%");
+    expect(rankPercentileLabel(6614, 13228)).toBe("상위 50%");
+    expect(rankPercentileLabel(13228, 13228)).toBe("상위 100%");
+  });
+
+  it("floors at 0.1% so rank 1 never reads as 상위 0%", () => {
+    expect(rankPercentileLabel(1, 50000)).toBe("상위 0.1%");
+  });
+
+  it("returns null for impossible rank/total combinations", () => {
+    expect(rankPercentileLabel(0, 100)).toBeNull();
+    expect(rankPercentileLabel(5, 0)).toBeNull();
+    expect(rankPercentileLabel(101, 100)).toBeNull();
+    expect(rankPercentileLabel(Number.NaN, 100)).toBeNull();
   });
 });
 
@@ -42,6 +78,15 @@ describe("rationaleToPhrase (§4.2)", () => {
     ]));
     expect(phrase).toContain("당류(9점)");
     expect(phrase).toContain("나트륨(6점)");
+  });
+
+  // rationale에는 감점 성분만 담기므로(buildRationale은 negatives만 받음) 문구가
+  // 등급과 무관하게 참이어야 한다. A등급 제품에 "등급을 낮춘"은 사실과 어긋난다.
+  it("uses grade-neutral wording and leaves no unresolved particle placeholder", () => {
+    const phrase = rationaleToPhrase(JSON.stringify([{ nutrient: "energy", points: 2 }]));
+    expect(phrase).not.toContain("이(가)");
+    expect(phrase).not.toContain("낮춘");
+    expect(phrase).toBe("등급에 크게 기여한 성분: 에너지(2점)");
   });
 
   it("returns null for empty, missing, or malformed rationale", () => {

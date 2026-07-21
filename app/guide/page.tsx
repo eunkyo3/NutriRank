@@ -66,7 +66,8 @@ export default function GuidePage() {
         </div>
         <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600">
           <li>
-            <strong>등급 근거</strong>: 제품 상세에서 “당류가 등급을 크게 낮췄어요”처럼 어떤 성분이 등급에 크게 기여했는지 보여줍니다.
+            <strong>등급 근거</strong>: 제품 상세에서 “등급에 크게 기여한 성분: 당류(9점), 나트륨(6점)”처럼 어떤 감점
+            성분이 점수를 끌어올렸는지 보여줍니다.
           </li>
           <li>
             <strong>미측정 성분</strong>: 감점 4성분(에너지·당류·포화지방·나트륨) 중 하나라도 측정값이 없으면, 임의로 0을
@@ -76,6 +77,28 @@ export default function GuidePage() {
             과일·채소 함량 데이터가 없어 해당 가점은 반영되지 않습니다. 이 때문에 주스류가 실제보다 다소 불리하게 나올 수 있습니다.
           </li>
         </ul>
+      </section>
+
+      {/* 등급 쏠림 — "왜 다 E인가요?" 는 이 서비스에서 가장 자주 나오는 질문이다. */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">왜 D·E 등급이 이렇게 많나요?</h2>
+        <p className="text-sm text-gray-600">
+          실제로 수록 제품의 약 <strong>80%가 D·E</strong>입니다. 오류가 아니라 당연한 결과입니다. Nutri-Score는{' '}
+          <strong>모든 가공식품에 같은 절대 기준</strong>을 적용하는데, NutriRank가 다루는 범위는 과자와 음료뿐입니다.
+          이 식품군은 설탕·포화지방·나트륨이 많아 애초에 낮은 등급대에 몰립니다. 채소·통곡물까지 포함한 전체 식품에서라면
+          A·B가 훨씬 많이 나옵니다.
+        </p>
+        <div className="rounded bg-gray-50 p-4 text-sm text-gray-700">
+          <p>
+            그래서 NutriRank는 절대 등급 하나로 끝내지 않고 <strong>같은 카테고리 안에서의 순위</strong>를 함께 보여줍니다.
+            “과자를 먹을지 말지”가 아니라 <strong>“어차피 과자를 고른다면 그중 무엇이 나은지”</strong>에 답하기 위해서입니다.
+            같은 E등급 안에서도 점수 차이는 크고, 순위는 그 차이를 드러냅니다.
+          </p>
+        </div>
+        <p className="text-sm text-gray-600">
+          카테고리마다 쏠림 정도도 다릅니다. <a href="/analytics" className="underline">카테고리 비교</a>에서 어느 묶음이
+          더 나쁜지, 그 원인이 당류인지 나트륨인지 확인할 수 있습니다.
+        </p>
       </section>
 
       {/* 미측정 vs 0 */}
@@ -101,10 +124,16 @@ export default function GuidePage() {
           </GuideRow>
           <GuideRow title="🏆 카테고리 순위" href="/rankings/carbonated">
             같은 카테고리 제품을 <strong>건강한 순(점수 오름차순)</strong>으로 나열합니다. 위쪽일수록 건강하며, 상단에
-            A·B 등급이 모입니다.
+            A·B 등급이 모입니다. 등급 칩으로 특정 등급만 추리거나, <strong>덜 건강한 순</strong>으로 뒤집어 최하위부터
+            볼 수도 있습니다.
+          </GuideRow>
+          <GuideRow title="🆚 카테고리 비교" href="/analytics">
+            6개 카테고리를 평균 건강 점수·D·E 비율·평균 성분으로 나란히 대조합니다. 어느 카테고리가 더 나쁜지, 그 원인이
+            무엇인지 한 화면에서 봅니다.
           </GuideRow>
           <GuideRow title="📊 집계 대시보드" href="/analytics/carbonated">
-            카테고리 단위로 등급 분포, 평균(점수·당류·나트륨·포화지방), 당류↔점수 상관, 스냅샷별 추세를 봅니다.
+            카테고리 하나를 깊게 봅니다. 등급 분포, 평균(점수·당류·나트륨·포화지방), 당류↔건강 점수 산점도와 상관계수,
+            스냅샷 이력을 제공합니다.
           </GuideRow>
         </div>
       </section>
@@ -120,7 +149,11 @@ export default function GuidePage() {
           <li>
             데이터 출처: 식품의약품안전처「전국통합식품영양성분정보(가공식품) 표준데이터」(공공데이터포털 15100066).
           </li>
-          <li>대상 범위: 음료(탄산·주스·커피)와 과자(스낵/칩·초콜릿·비스킷). 그 외 식품군은 제외됩니다.</li>
+          <li>
+            대상 범위: 음료(탄산·주스·커피·차)와 간식(스낵/칩·초콜릿·비스킷·캔디/젤리·아이스크림). 빵·떡·케이크처럼
+            식사 대용 성격인 식품군과 조미료·유지류처럼 100g을 그대로 먹지 않는 식품군은 제외됩니다 — 100g 기준
+            등급이 실제 섭취량과 동떨어져 오해를 부르기 때문입니다.
+          </li>
         </ul>
       </section>
     </div>
