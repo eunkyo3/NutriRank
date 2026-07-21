@@ -18,6 +18,10 @@ dist/
 data/raw/
 *.local
 
+# playwright (실패한 e2e가 남기는 trace/스크린샷)
+test-results/
+playwright-report/
+
 # logs
 ingest*.log
 npm-debug.log*
