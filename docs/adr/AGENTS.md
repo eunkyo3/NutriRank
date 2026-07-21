@@ -14,6 +14,8 @@ Architecture Decision Records for NutriRank. Each ADR is a short, decision-first
 | `0003-absolute-grade-relative-ranking.md` | Health grade is an absolute A–E scale; category ranking sorts the shared absolute health score within a consumer category (single score axis avoids grade/rank contradictions). |
 | `0004-precomputed-nextjs-fullstack.md` | Next.js full-stack over a single DB (initially SQLite) with a batch pipeline that precomputes scores/grades/rankings; all screens read precomputed values. |
 | `0005-docker-sqlite-stack.md` | Concretizes ADR-0004 into a stack: host-agnostic Docker single image + volume SQLite (app read-only, batch writer, WAL), better-sqlite3 + Drizzle, TypeScript/Next.js App Router, Vitest + Playwright, Tailwind. |
+| `0007-category-is-authoritative-for-product-type.md` | 제품유형은 기준량 표기가 아니라 소비자 카테고리가 정한다. 표기로 역산하면 100g으로 적힌 주스에 고형 컷오프가 걸려 같은 점수에 다른 등급이 나온다(실측 2,376건). 새 카테고리는 제품유형 선언이 필수. |
+| `0006-grade-skew-and-relative-discovery.md` | D·E가 79.2%로 쏠리는 것은 음료·과자로 범위를 한정한 결과이므로 컷오프를 조정하지 않고 전제로 받아들인다. 카테고리 내 상대 순위·등급 필터·카테고리 비교로 변별력을 확보하고, 쏠림을 화면에서 먼저 설명한다. |
 
 ## Subdirectories
 None.
