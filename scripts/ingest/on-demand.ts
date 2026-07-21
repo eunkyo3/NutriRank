@@ -80,8 +80,13 @@ export async function fetchAndCacheByName(
   const mapped: NormalizedPair[] = [];
   for (const r of records) {
     const pair = normalizeRecord(r, computedAt);
-    const categoryId = categoryFor(pair, lookup);
-    if (categoryId !== null) mapped.push({ ...pair, product: { ...pair.product, categoryId } });
+    const assignment = categoryFor(pair, lookup);
+    // 배치 경로와 동일하게 제품유형도 카테고리를 따른다(map.ts 주석 참조).
+    if (assignment !== null)
+      mapped.push({
+        ...pair,
+        product: { ...pair.product, categoryId: assignment.categoryId, productType: assignment.productType },
+      });
   }
   if (mapped.length === 0) return 0;
 

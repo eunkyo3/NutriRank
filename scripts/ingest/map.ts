@@ -7,26 +7,45 @@
 // level='sub'). (data-model §4 assumed 세분류/소분류 anchors before the live
 // taxonomy was known; this is the corrected mapping.) Unmapped products (음료·과자
 // 밖) are filtered out, and their 식품유형 is reported for the next curation round.
-import { mfdsCategoryMap } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { consumerCategory, mfdsCategoryMap } from "@/db/schema";
 import type { Db } from "./persist";
 import type { NormalizedPair } from "./source";
 
-// In-memory lookup keyed by `${level}:${code}` → category_id, loaded once per run.
-export type CategoryLookup = ReadonlyMap<string, string>;
+// 소비자 카테고리가 제품유형의 권위다. CONTEXT.md는 음료를 "액체로 섭취하는
+// 제품유형"으로 정의하고 기준량 100ml은 그 결과인데, 기준량 문자열에서 제품유형을
+// 역산하면(parseProductType) 인과가 뒤집힌다. 실제로 원천에는 100g으로 표기된
+// 주스가 다수 있어(주스의 19.6%), 그것만으로 고형식품 컷오프가 적용돼 같은 점수에
+// 다른 등급이 나왔다(ADR-0003 위반). 카테고리가 정해지면 그 카테고리의 제품유형을
+// 따르고, 기준량 표기는 reference_raw에 원본 그대로 보존한다.
+export interface CategoryAssignment {
+  categoryId: string;
+  productType: string; // 'beverage' | 'solid'
+}
+
+// In-memory lookup keyed by `${level}:${code}` → 카테고리 배정, loaded once per run.
+export type CategoryLookup = ReadonlyMap<string, CategoryAssignment>;
 
 export function loadCategoryMap(db: Db): CategoryLookup {
   const rows = db
-    .select({ level: mfdsCategoryMap.mfdsLevel, code: mfdsCategoryMap.mfdsCode, categoryId: mfdsCategoryMap.categoryId })
+    .select({
+      level: mfdsCategoryMap.mfdsLevel,
+      code: mfdsCategoryMap.mfdsCode,
+      categoryId: mfdsCategoryMap.categoryId,
+      productType: consumerCategory.productType,
+    })
     .from(mfdsCategoryMap)
+    // 매핑이 가리키는 카테고리가 시드에 없으면 그 규칙은 무효 — innerJoin이 걸러낸다.
+    .innerJoin(consumerCategory, eq(mfdsCategoryMap.categoryId, consumerCategory.id))
     .all();
-  const map = new Map<string, string>();
-  for (const r of rows) map.set(`${r.level}:${r.code}`, r.categoryId);
+  const map = new Map<string, CategoryAssignment>();
+  for (const r of rows) map.set(`${r.level}:${r.code}`, { categoryId: r.categoryId, productType: r.productType });
   return map;
 }
 
 // Resolve a product's consumer category: 식품유형(detail) anchor first, then
 // 군(sub) fallback.
-export function categoryFor(pair: NormalizedPair, lookup: CategoryLookup): string | null {
+export function categoryFor(pair: NormalizedPair, lookup: CategoryLookup): CategoryAssignment | null {
   const { mfdsL2Code, mfdsL1Code } = pair.product;
   if (mfdsL2Code) {
     const detail = lookup.get(`detail:${mfdsL2Code}`);
@@ -57,9 +76,13 @@ export function applyCategoryMapping(pairs: readonly NormalizedPair[], lookup: C
   const unmappedByCode = new Map<string, UnmappedDetail>();
 
   for (const pair of pairs) {
-    const categoryId = categoryFor(pair, lookup);
-    if (categoryId !== null) {
-      mapped.push({ ...pair, product: { ...pair.product, categoryId } });
+    const assignment = categoryFor(pair, lookup);
+    if (assignment !== null) {
+      // 제품유형은 카테고리를 따른다(기준량 표기가 아니라). reference_raw는 그대로 둔다.
+      mapped.push({
+        ...pair,
+        product: { ...pair.product, categoryId: assignment.categoryId, productType: assignment.productType },
+      });
     } else {
       // Key the report by 식품유형 code (fall back to 군, then "unknown").
       const code = pair.product.mfdsL2Code ?? pair.product.mfdsL1Code ?? "unknown";

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { computeAggSnapshot } from "@/scripts/ingest/aggregate";
 import { dedupByFoodCode } from "@/scripts/ingest/dedup";
 import { DEFAULT_GATE_CONFIG, evaluateQualityGate } from "@/scripts/ingest/gate";
+import { applyCategoryMapping } from "@/scripts/ingest/map";
 import { parseNullableText, parseNutrientValue } from "@/scripts/ingest/parse";
 import { computeCategoryRankings } from "@/scripts/ingest/rank";
 
@@ -37,6 +38,79 @@ describe("parseNutrientValue — 미측정 NULL vs measured 0 (§5.2)", () => {
     expect(parseNullableText("")).toBeNull();
     expect(parseNullableText("롯데")).toBe("롯데");
     expect(parseNullableText(null)).toBeNull();
+  });
+});
+
+// 원천에는 100g으로 표기된 주스가 다수 있다(주스의 19.6%). 기준량 문자열로 제품유형을
+// 역산하면 그런 제품에 고형식품 컷오프가 적용돼 같은 점수에 다른 등급이 나온다
+// (ADR-0003 위반). 카테고리가 제품유형의 권위여야 한다.
+describe("applyCategoryMapping — 카테고리가 제품유형의 권위 (ADR-0007)", () => {
+  const lookup = new Map([
+    ["detail:09302", { categoryId: "juice", productType: "beverage" }],
+    ["detail:01104", { categoryId: "snack_chip", productType: "solid" }],
+  ]);
+
+  function pair(over: { foodCode: string; referenceRaw: string; productType: string | null; mfdsL2Code: string | null }) {
+    return {
+      product: {
+        foodCode: over.foodCode,
+        name: "제품",
+        manufacturer: null,
+        referenceRaw: over.referenceRaw,
+        productType: over.productType,
+        categoryId: null,
+        mfdsL1Code: null,
+        mfdsL1Name: null,
+        mfdsL2Code: over.mfdsL2Code,
+        mfdsL2Name: null,
+        mfdsL3Code: null,
+        mfdsL3Name: null,
+        mfdsL4Code: null,
+        mfdsL4Name: null,
+        servingRef: null,
+        dataGenDate: null,
+        ingestedAt: "2026-07-22T00:00:00Z",
+      },
+      nutrient: { foodCode: over.foodCode, energyKcal: 0, sugarsG: 0, satfatG: 0, sodiumMg: 0, fiberG: 0, proteinG: 0 },
+    } as unknown as Parameters<typeof applyCategoryMapping>[0][number];
+  }
+
+  it("overrides a 100g-declared juice to beverage", () => {
+    const { mapped } = applyCategoryMapping(
+      [pair({ foodCode: "J1", referenceRaw: "100g", productType: "solid", mfdsL2Code: "09302" })],
+      lookup,
+    );
+    expect(mapped).toHaveLength(1);
+    expect(mapped[0].product.categoryId).toBe("juice");
+    expect(mapped[0].product.productType).toBe("beverage");
+    // 원본 표기는 보존한다 — 영양값은 여전히 100g당이므로 화면이 이를 밝혀야 한다.
+    expect(mapped[0].product.referenceRaw).toBe("100g");
+  });
+
+  it("overrides a 100ml-declared snack to solid", () => {
+    const { mapped } = applyCategoryMapping(
+      [pair({ foodCode: "S1", referenceRaw: "100ml", productType: "beverage", mfdsL2Code: "01104" })],
+      lookup,
+    );
+    expect(mapped[0].product.productType).toBe("solid");
+  });
+
+  it("fills in a product type even when 기준량 was unparseable", () => {
+    const { mapped } = applyCategoryMapping(
+      [pair({ foodCode: "J2", referenceRaw: "1병", productType: null, mfdsL2Code: "09302" })],
+      lookup,
+    );
+    expect(mapped[0].product.productType).toBe("beverage");
+  });
+
+  it("leaves unmapped 식품유형 out and tallies them for curation", () => {
+    const { mapped, unmapped, filteredOutCount } = applyCategoryMapping(
+      [pair({ foodCode: "X1", referenceRaw: "100g", productType: "solid", mfdsL2Code: "01405" })],
+      lookup,
+    );
+    expect(mapped).toHaveLength(0);
+    expect(filteredOutCount).toBe(1);
+    expect(unmapped[0].code).toBe("01405");
   });
 });
 
