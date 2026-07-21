@@ -10,11 +10,26 @@ import { getWriteDb } from "@/db/client";
 import { DataGoKr15100066Adapter } from "./adapters/datagokr-15100066";
 import { runIngest } from "./orchestrator";
 
+// Next.js는 .env.local/.env를 자동 로드하지만 tsx로 직접 실행하는 이 CLI는 아니다.
+// 그래서 키를 .env에 넣어두고도 "DATA_GO_KR_SERVICE_KEY is required"가 났다.
+// 이미 설정된 환경변수가 우선하도록 파일은 뒤에서 채우기만 한다(loadEnvFile은 기존
+// 값을 덮어쓰지 않는다). 파일이 없으면 조용히 넘어간다.
+function loadDotEnv() {
+  for (const file of [".env.local", ".env"]) {
+    try {
+      process.loadEnvFile(file);
+    } catch {
+      // 파일 없음 — 환경변수를 셸에서 직접 넘기는 경우(run-ingest.ps1, CI)라 정상이다.
+    }
+  }
+}
+
 async function main() {
+  loadDotEnv();
   const serviceKey = process.env.DATA_GO_KR_SERVICE_KEY;
   const endpoint = process.env.DATA_GO_KR_15100066_ENDPOINT;
   if (!serviceKey) {
-    throw new Error("DATA_GO_KR_SERVICE_KEY is required (set it in .env.local).");
+    throw new Error("DATA_GO_KR_SERVICE_KEY is required — set it in .env.local or .env (both are auto-loaded).");
   }
   if (!endpoint) {
     throw new Error(
