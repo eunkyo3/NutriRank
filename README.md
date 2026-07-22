@@ -125,6 +125,19 @@ pnpm install
 
 > `better-sqlite3`는 네이티브 모듈이라 `package.json`의 `pnpm.onlyBuiltDependencies`에 등록되어 있습니다(pnpm 10의 빌드 스크립트 차단 대응).
 
+> **RHEL 계열(Rocky·Alma·CentOS) 주의:** 배포판 `nodejs` 패키지에 corepack이 들어 있지 않아
+> `corepack enable`이 `command not found`로 실패합니다. `npm`도 별도 패키지입니다.
+> 기본 모듈 스트림은 Node 16이므로 22로 바꾼 뒤 pnpm을 직접 설치하세요.
+>
+> ```bash
+> dnf module reset nodejs -y && dnf module enable nodejs:22 -y
+> dnf install -y nodejs npm
+> npm install -g pnpm@9.15.0
+> ```
+>
+> `pnpm install`이 `better-sqlite3` 빌드에서 막히면 `dnf group install -y "Development Tools"`와
+> `dnf install -y python3`가 필요합니다. x86_64 glibc + Node 22면 보통 prebuilt를 받아 그냥 넘어갑니다.
+
 ### 환경변수
 
 `.env.example`을 `.env.local`로 복사하고 공공데이터포털 인증키를 입력하세요(`.env.local`은 git에서 제외됨):
