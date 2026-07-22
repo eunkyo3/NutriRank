@@ -168,6 +168,16 @@ pnpm build && pnpm start
 pnpm ingest        # 공개 데이터 수집 → 정규화 → 적재 → 점수·등급·순위 사전계산
 ```
 
+전량 적재(약 11.5시간)는 자리를 비운 채 돌리게 되므로 러너 스크립트를 쓰세요. 준비물(`.env`·pnpm·
+마이그레이션)이 빠졌으면 **즉시** 중단하고, 진행 로그를 `ingest-run.log`에 남깁니다.
+
+```bash
+./run-ingest.sh                        # Linux/macOS — tmux new -s ingest -d './run-ingest.sh'
+```
+```powershell
+.\run-ingest.ps1                       # Windows
+```
+
 ### 테스트
 
 ```bash
@@ -215,7 +225,7 @@ gh release download --repo eunkyo3/NutriRank --pattern "*.sqlite" \
 
 ### 새 스냅샷 만들기(관리자용)
 ```bash
-pnpm ingest        # 전량 적재 (INGEST_MAX_PAGES 미설정, ~11.5h). Windows는 run-ingest.ps1 참고.
+./run-ingest.sh    # 전량 적재 (~11.5h). Windows는 .\run-ingest.ps1, 직접 실행은 pnpm ingest.
 # WAL 통합 → 단일 파일로 완결
 node -e "const D=require('better-sqlite3');const db=new D('./data/nutrirank.sqlite');db.pragma('wal_checkpoint(TRUNCATE)');db.pragma('journal_mode=DELETE');db.close()"
 # 태그 data-YYYY-MM-DD로 릴리스 생성 + 자산 업로드 (자산명에 날짜를 포함시킨다)
@@ -261,7 +271,7 @@ docker run -p 3000:3000 -v "$(pwd)/data:/data" -e DATA_GO_KR_SERVICE_KEY=... nut
 - 100g으로 표기된 음료 2,376건에 고형식품 컷오프가 적용된 **옛 등급**이 그대로 남아 있습니다
   (같은 점수에 다른 등급이 나오는 제품이 11,527건 = 순위의 23.9%)
 
-`.\run-ingest.ps1`로 전량 재적재(약 11.5시간)하면 해소되며, 그 뒤 새 스냅샷을 Releases에 올리고
+`./run-ingest.sh`(Windows는 `.\run-ingest.ps1`)로 전량 재적재(약 11.5시간)하면 해소되며, 그 뒤 새 스냅샷을 Releases에 올리고
 위 스냅샷 표에 행을 추가하세요.
 
 > 핵심 로직(`lib/grading`·`scripts/ingest`)과 화면(`app/*`)은 구현·검증 완료입니다.
