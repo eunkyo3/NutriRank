@@ -87,22 +87,38 @@ export class DataGoKr15100066Adapter implements FetchAdapter {
   }
 
   // §4 exponential backoff on transient failures; the key is never logged.
+  // 전량 적재는 11.5시간짜리라 몇 분짜리 API 장애를 버텨야 한다(503 한 번에
+  // 380/591페이지가 날아간 적 있음). 대기 상한은 초가 아니라 분 단위:
+  // 0.5s → 1s → 2s → … → 60s 캡, 기본 10회 재시도 ≈ 5.5분의 장애 흡수.
   private async fetchJson(url: URL): Promise<Envelope> {
-    const maxRetries = this.cfg.maxRetries ?? 3;
+    const maxRetries = this.cfg.maxRetries ?? 10;
     let lastError: unknown;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        // 응답이 영영 안 오는 행(hang)도 재시도로 돌리기 위한 요청 타임아웃.
+        const res = await fetch(url, {
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(120_000),
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status} from 15100066`);
         return (await res.json()) as Envelope;
       } catch (error) {
         lastError = error;
-        if (attempt < maxRetries) await delay(2 ** attempt * 500);
+        if (attempt < maxRetries) {
+          const wait = Math.min(2 ** attempt * 500, 60_000);
+          console.error(
+            `[ingest] fetch attempt ${attempt + 1}/${maxRetries + 1} failed (${redact(String(error), this.cfg.serviceKey)}); retrying in ${wait}ms`,
+          );
+          await delay(wait);
+        }
       }
     }
-    const detail = String(lastError).split(this.cfg.serviceKey).join("***");
-    throw new Error(`15100066 fetch failed after ${maxRetries} retries: ${detail}`);
+    throw new Error(`15100066 fetch failed after ${maxRetries} retries: ${redact(String(lastError), this.cfg.serviceKey)}`);
   }
+}
+
+function redact(text: string, secret: string): string {
+  return text.split(secret).join("***");
 }
 
 function delay(ms: number): Promise<void> {

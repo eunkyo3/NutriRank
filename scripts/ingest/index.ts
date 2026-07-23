@@ -55,8 +55,12 @@ async function main() {
       `${maxPages != null ? " ← 부분 샘플(전량 아님). 전량이면 INGEST_MAX_PAGES 를 해제하세요." : ""}`,
   )
 
+  // INGEST_MAX_RETRIES: 페이지당 fetch 재시도 상한(기본 10 — 어댑터 참조).
+  const maxRetriesRaw = process.env.INGEST_MAX_RETRIES
+  const maxRetries = maxRetriesRaw ? Number.parseInt(maxRetriesRaw, 10) : undefined
+
   const db = getWriteDb();
-  const adapter = new DataGoKr15100066Adapter({ serviceKey, endpoint });
+  const adapter = new DataGoKr15100066Adapter({ serviceKey, endpoint, maxRetries });
   const report = await runIngest({ adapter, db, ingestedAt, snapshotDate, perPage, maxPages });
 
   // Print the quality report (no secrets); truncate the unmapped list.
