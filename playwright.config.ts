@@ -14,9 +14,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // webServer: {
-  //   command: 'pnpm start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  webServer: {
+    command: 'pnpm start',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    // next start는 사전 빌드(.next)를 전제한다 — e2e 전에 pnpm build가 필요.
+    timeout: 60_000,
+  },
 })
