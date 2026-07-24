@@ -1,6 +1,7 @@
 // 도움말 / 이용 가이드 — 건강 등급 산정 방식 + 화면 보는 법.
 // 정적 콘텐츠(사전계산 테이블도 조회하지 않음). CONTEXT.md 용어집 + grading-spec 요약.
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { HEALTH_GRADES } from '@/lib/display'
 import { GradeBadge } from '@/app/_components/ui'
 import { CONSUMER_CATEGORY_SEED } from '@/db/seed'
@@ -97,7 +98,7 @@ export default function GuidePage() {
           </p>
         </div>
         <p className="text-sm text-gray-600">
-          카테고리마다 쏠림 정도도 다릅니다. <a href="/analytics" className="underline">카테고리 비교</a>에서 어느 묶음이
+          카테고리마다 쏠림 정도도 다릅니다. <Link href="/analytics" className="underline">카테고리 비교</Link>에서 어느 묶음이
           더 나쁜지, 그 원인이 당류인지 나트륨인지 확인할 수 있습니다.
         </p>
       </section>

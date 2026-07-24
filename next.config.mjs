@@ -12,7 +12,8 @@
 // 이 값을 켠 빌드 결과물로는 Docker 이미지를 만들 수 없다.
 const standalone = process.env.NEXT_DISABLE_STANDALONE !== '1';
 
-export default {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   ...(standalone ? { output: 'standalone' } : {}),
   outputFileTracingIncludes: {
     '/**': [
@@ -21,3 +22,5 @@ export default {
     ],
   },
 };
+
+export default nextConfig;

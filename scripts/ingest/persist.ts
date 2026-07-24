@@ -148,6 +148,9 @@ export function snapshotAgg(db: Db, snapshotDate: string): void {
   db.transaction((tx) => {
     for (const [categoryId, products] of byCategory) {
       const agg = computeAggSnapshot(categoryId, products);
+      // categoryId는 onConflictDoUpdate의 target이라 set 대상에서 제외해야 하므로
+      // 구조분해로 덜어낸다 — _omit 자체는 사용하지 않는 게 의도.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { categoryId: _omit, ...updatable } = agg;
       tx.insert(schema.categoryAggSnapshot)
         .values({ snapshotDate, ...agg })

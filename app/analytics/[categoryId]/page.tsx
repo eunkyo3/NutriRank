@@ -151,7 +151,7 @@ export default async function CategoryAnalyticsPage({
               {dominantReading(dominant.label, dominant.r)}
             </p>
             <p className="mt-1 text-xs text-gray-400">
-              양의 계수는 "많을수록 건강 점수가 높아짐(= 덜 건강)"을 뜻합니다. 미측정(NULL)은 성분별로 제외했습니다.
+              양의 계수는 &quot;많을수록 건강 점수가 높아짐(= 덜 건강)&quot;을 뜻합니다. 미측정(NULL)은 성분별로 제외했습니다.
               에너지는 다른 성분들의 합산 결과라 함께 높게 나오므로, 주범 판정은 원인 성분(당류·나트륨·포화지방) 중에서 고릅니다.
             </p>
             <div className="mt-4">
