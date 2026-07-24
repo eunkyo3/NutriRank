@@ -2,7 +2,7 @@
 // 상관은 성분–점수(당류 vs 건강점수), NULL 제외. 추세는 category_agg_snapshot 이력.
 import { notFound } from 'next/navigation'
 import { tryGetReadDb } from '@/db/client'
-import { getCategory, getCategoryAnalytics } from '@/db/queries'
+import { getCategory, getCategoryAnalytics, type NutrientKey } from '@/db/queries'
 import { CONSUMER_CATEGORY_SEED } from '@/db/seed'
 import { formatNutrient, gradeBarClass, HEALTH_GRADES } from '@/lib/display'
 import { pearson } from '@/lib/stats'
@@ -37,8 +37,23 @@ export default async function CategoryAnalyticsPage({
   const analytics = getCategoryAnalytics(db, categoryId)
   const latest = analytics.trend[0] ?? null
   const distByGrade = Object.fromEntries(analytics.distribution.map((d) => [d.grade, d.count]))
-  const correlation = pearson(analytics.correlationPoints)
   const maxCount = Math.max(1, ...analytics.distribution.map((d) => d.count))
+
+  // 4성분 각각의 피어슨 계수. 계수는 표본이 2개 미만이거나 분산이 0이면 null.
+  const nutrientStats = analytics.nutrientCorrelations.map((nc) => ({
+    key: nc.key,
+    label: NUTRIENT_LABEL[nc.key],
+    r: pearson(nc.points),
+    n: nc.points.length,
+  }))
+  // 산점도는 당류 하나만 유지한다.
+  const sugarsPoints = analytics.nutrientCorrelations.find((nc) => nc.key === 'sugars')?.points ?? []
+  // "등급을 깎는 주범"은 원인 성분 3종(당류·나트륨·포화지방) 중 |r| 최대로 짚는다.
+  // 에너지는 다른 성분들의 합산 결과라 대부분 카테고리에서 함께 높게 나오므로
+  // 주범 판정에서 제외한다(docs/analysis-questions.md H4와 동일 기준) — 표에는 남긴다.
+  const dominant = nutrientStats
+    .filter((s): s is typeof s & { r: number } => s.r !== null && s.key !== 'energy')
+    .sort((a, b) => Math.abs(b.r) - Math.abs(a.r))[0] ?? null
 
   if (analytics.gradableCount === 0 && analytics.trend.length === 0) {
     return (
@@ -51,7 +66,10 @@ export default async function CategoryAnalyticsPage({
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold">집계 분석 대시보드: {label}</h1>
+      <div>
+        <p className="text-xs italic text-gray-400">이 화면이 답하는 질문 · 이 카테고리의 등급을 깎는 주범은 무엇인가?</p>
+        <h1 className="mt-1 text-2xl font-bold">집계 분석 대시보드: {label}</h1>
+      </div>
 
       {/* 분포 */}
       <section>
@@ -94,19 +112,52 @@ export default async function CategoryAnalyticsPage({
         )}
       </section>
 
-      {/* 상관 */}
+      {/* 상관 — 4성분 각각과 건강 점수의 피어슨 계수 */}
       <section>
-        <h2 className="text-lg font-semibold">상관: 당류 ↔ 건강 점수</h2>
-        {correlation !== null ? (
+        <h2 className="text-lg font-semibold">성분별 상관: 성분 ↔ 건강 점수</h2>
+        {dominant ? (
           <>
-            <p className="mt-2 text-sm text-gray-600">
-              피어슨 상관계수 <span className="font-semibold tabular-nums">{correlation.toFixed(3)}</span>{' '}
-              <span className="text-gray-400">(표본 {analytics.correlationPoints.length}개, 미측정 제외)</span>
-            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[420px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left text-gray-500">
+                    <th className="py-2">성분</th>
+                    <th className="py-2 text-right">피어슨 계수</th>
+                    <th className="py-2 text-right">표본수</th>
+                    <th className="py-2 pl-4">해석</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {nutrientStats.map((s) => (
+                    <tr key={s.key}>
+                      <td className="py-2 font-medium">{s.label}</td>
+                      <td className="py-2 text-right font-semibold tabular-nums">
+                        {s.r === null ? '—' : s.r.toFixed(3)}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-gray-500">{s.n}</td>
+                      <td className="py-2 pl-4 text-gray-500">
+                        {s.r === null ? '표본 부족(2개 미만)' : correlationStrength(s.r)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {/* 계수만 두면 청중이 방향을 오독한다. 건강 점수는 낮을수록 건강하므로
-                양의 상관은 "당류가 많을수록 덜 건강"을 뜻한다. */}
-            <p className="mt-1 text-sm text-gray-500">{correlationReading(correlation)}</p>
-            <CorrelationScatter points={analytics.correlationPoints} />
+                양의 상관은 "많을수록 덜 건강"을 뜻한다. |r|이 가장 큰 성분을 주범으로 짚는다. */}
+            <p className="mt-3 text-sm text-gray-600">
+              이 카테고리 등급을 깎는 주범은{' '}
+              <strong>{dominant.label}</strong>입니다 —{' '}
+              {dominantReading(dominant.label, dominant.r)}
+            </p>
+            <p className="mt-1 text-xs text-gray-400">
+              양의 계수는 "많을수록 건강 점수가 높아짐(= 덜 건강)"을 뜻합니다. 미측정(NULL)은 성분별로 제외했습니다.
+              에너지는 다른 성분들의 합산 결과라 함께 높게 나오므로, 주범 판정은 원인 성분(당류·나트륨·포화지방) 중에서 고릅니다.
+            </p>
+            <div className="mt-4">
+              <p className="text-sm font-medium text-gray-600">당류 ↔ 건강 점수 산점도</p>
+              <CorrelationScatter points={sugarsPoints} />
+            </div>
           </>
         ) : (
           <p className="mt-2 text-sm text-gray-500">상관을 계산할 표본이 부족합니다(미측정 제외 2개 미만).</p>
@@ -162,14 +213,31 @@ function incomparableSnapshots(trend: { productCount: number | null }[]): boolea
   return Math.max(...counts) > Math.min(...counts) * 2
 }
 
-// 상관계수를 방향·세기로 풀어 쓴다. 건강 점수는 낮을수록 건강(ADR-0003의 단일 점수 축)
-// 이므로 당류와의 양의 상관은 "당류가 많을수록 덜 건강"으로 읽어야 한다.
-function correlationReading(r: number): string {
-  const strength = Math.abs(r) >= 0.7 ? '강한' : Math.abs(r) >= 0.4 ? '뚜렷한' : Math.abs(r) >= 0.2 ? '약한' : '뚜렷하지 않은'
-  if (Math.abs(r) < 0.2) return '당류와 건강 점수 사이에 뚜렷한 선형 관계가 나타나지 않습니다.'
+// H4 상관표의 성분 라벨. key는 product_nutrient 컬럼(getCategoryAnalytics)과 일치.
+const NUTRIENT_LABEL: Record<NutrientKey, string> = {
+  sugars: '당류',
+  sodium: '나트륨',
+  satfat: '포화지방',
+  energy: '에너지',
+}
+
+// |r| 세기만 한 낱말로. 표의 '해석' 열에 쓴다.
+function correlationStrength(r: number): string {
+  const a = Math.abs(r)
+  const strength = a >= 0.7 ? '강한' : a >= 0.4 ? '뚜렷한' : a >= 0.2 ? '약한' : '뚜렷하지 않은'
+  if (a < 0.2) return '선형 관계 뚜렷하지 않음'
+  return r > 0 ? `${strength} 양의 상관(많을수록 덜 건강)` : `${strength} 음의 상관(많을수록 더 건강)`
+}
+
+// 주범 문장. 건강 점수는 낮을수록 건강(ADR-0003의 단일 점수 축)이므로 양의 상관은
+// "많을수록 덜 건강"으로 읽어야 한다 — 방향 오독을 막는 문구를 강제한다.
+function dominantReading(label: string, r: number): string {
+  const a = Math.abs(r)
+  const strength = a >= 0.7 ? '강하게' : a >= 0.4 ? '뚜렷하게' : a >= 0.2 ? '약하게' : '뚜렷하지 않게'
+  if (a < 0.2) return `${label}조차 건강 점수와 뚜렷한 선형 관계를 보이지 않아, 이 카테고리는 특정 성분 하나로 등급이 갈리지 않습니다.`
   return r > 0
-    ? `당류가 많을수록 건강 점수가 높아지는(= 덜 건강한) ${strength} 경향입니다.`
-    : `당류가 많을수록 건강 점수가 낮아지는(= 더 건강한) ${strength} 경향으로, 통상적인 방향과 반대입니다.`
+    ? `${label}이(가) 많을수록 건강 점수가 ${strength} 높아집니다(= 덜 건강해집니다).`
+    : `${label}이(가) 많을수록 건강 점수가 ${strength} 낮아집니다(= 더 건강해지는, 통상과 반대 방향).`
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

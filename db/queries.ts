@@ -280,12 +280,18 @@ export interface CategoryComparisonRow {
   distribution: Record<string, number>;
   // D·E 비율(%) — "어느 카테고리가 더 나쁜가"를 한 숫자로 비교하기 위한 파생값.
   worstShare: number | null;
+  // 카테고리 내 건강 점수 최저/최고 (category_ranking 기준). 같은 카테고리 안에서도
+  // 선택에 따라 점수가 이만큼 벌어진다는 H3 근거. 순위 데이터가 없으면 NULL.
+  minHealthScore: number | null;
+  maxHealthScore: number | null;
 }
 
 // 카테고리 비교: 카테고리마다 가장 최근 집계 스냅샷 한 행씩. 실시간 계산 없이
 // category_agg_snapshot만 읽는다(ADR-0004). 적재가 진행 중이면 카테고리별로 최신
 // 스냅샷 일자가 다를 수 있어 snapshotDate를 함께 돌려준다.
 export function getCategoryComparison(db: Db): CategoryComparisonRow[] {
+  // 점수 범위(min/max)는 스냅샷에 없어 category_ranking에서 뽑아 category_id로 합친다.
+  // 순위가 아직 없는 카테고리도 스냅샷 행은 남기도록 LEFT JOIN.
   const rows = db.all(sql`
     SELECT s.category_id     AS categoryId,
            s.snapshot_date   AS snapshotDate,
@@ -294,13 +300,19 @@ export function getCategoryComparison(db: Db): CategoryComparisonRow[] {
            s.avg_sugars_g    AS avgSugarsG,
            s.avg_sodium_mg   AS avgSodiumMg,
            s.avg_satfat_g    AS avgSatfatG,
-           s.grade_a AS a, s.grade_b AS b, s.grade_c AS c, s.grade_d AS d, s.grade_e AS e
+           s.grade_a AS a, s.grade_b AS b, s.grade_c AS c, s.grade_d AS d, s.grade_e AS e,
+           r.min_score AS minHealthScore, r.max_score AS maxHealthScore
     FROM category_agg_snapshot s
     JOIN (
       SELECT category_id, MAX(snapshot_date) AS latest
       FROM category_agg_snapshot
       GROUP BY category_id
     ) m ON m.category_id = s.category_id AND m.latest = s.snapshot_date
+    LEFT JOIN (
+      SELECT category_id, MIN(health_score) AS min_score, MAX(health_score) AS max_score
+      FROM category_ranking
+      GROUP BY category_id
+    ) r ON r.category_id = s.category_id
   `) as (Omit<CategoryComparisonRow, "distribution" | "worstShare"> & {
     a: number | null;
     b: number | null;
@@ -328,19 +340,43 @@ export function getCategoryComparison(db: Db): CategoryComparisonRow[] {
       avgSatfatG: r.avgSatfatG,
       distribution,
       worstShare: graded > 0 ? ((distribution.D + distribution.E) / graded) * 100 : null,
+      minHealthScore: r.minHealthScore,
+      maxHealthScore: r.maxHealthScore,
     };
   });
+}
+
+// 카테고리 내 건강 점수 범위(최저~최고). category_ranking만 읽어 MIN/MAX로 집계한다
+// (ADR-0004: 사전계산 테이블에 대한 요청 시점 집계는 허용). 순위 데이터가 없으면 NULL.
+export function getCategoryScoreRange(db: Db, categoryId: string): { min: number; max: number } | null {
+  const row = db.get(sql`
+    SELECT MIN(health_score) AS min, MAX(health_score) AS max
+    FROM category_ranking
+    WHERE category_id = ${categoryId}
+  `) as { min: number | null; max: number | null } | undefined;
+  if (!row || row.min === null || row.max === null) return null;
+  return { min: row.min, max: row.max };
+}
+
+// H4 상관표에 쓰는 4성분. key는 product_nutrient 컬럼, label은 화면 표기.
+export type NutrientKey = "sugars" | "sodium" | "satfat" | "energy";
+
+export interface NutrientCorrelation {
+  key: NutrientKey;
+  // 성분값–건강 점수 표본. 성분/점수 어느 하나라도 NULL이면 제외(§4.4).
+  points: { x: number; y: number }[];
 }
 
 export interface CategoryAnalytics {
   distribution: { grade: string; count: number }[];
   gradableCount: number;
-  correlationPoints: { x: number; y: number }[]; // sugars vs health score, NULL excluded
+  // 당류/나트륨/포화지방/에너지 각각의 (성분값, 점수) 표본. NULL 제외.
+  nutrientCorrelations: NutrientCorrelation[];
   trend: (typeof categoryAggSnapshot.$inferSelect)[];
 }
 
-// §4.4 dashboard: grade distribution, sugars↔score points (for correlation, NULL
-// excluded), and the agg-snapshot trend history.
+// §4.4 dashboard: grade distribution, per-nutrient↔score points (for correlation,
+// NULL excluded), and the agg-snapshot trend history.
 export function getCategoryAnalytics(db: Db, categoryId: string): CategoryAnalytics {
   const distRows = db
     .select({ grade: gradeResult.healthGrade, c: count() })
@@ -356,16 +392,29 @@ export function getCategoryAnalytics(db: Db, categoryId: string): CategoryAnalyt
   const gradableCount = distribution.reduce((s, d) => s + d.count, 0);
 
   const points = db
-    .select({ sugars: productNutrient.sugarsG, score: gradeResult.healthScore })
+    .select({
+      sugars: productNutrient.sugarsG,
+      sodium: productNutrient.sodiumMg,
+      satfat: productNutrient.satfatG,
+      energy: productNutrient.energyKcal,
+      score: gradeResult.healthScore,
+    })
     .from(product)
     .innerJoin(gradeResult, eq(product.foodCode, gradeResult.foodCode))
     .leftJoin(productNutrient, eq(product.foodCode, productNutrient.foodCode))
     .where(and(eq(product.categoryId, categoryId), eq(gradeResult.gradable, 1)))
     .all();
 
-  const correlationPoints = points
-    .filter((p): p is { sugars: number; score: number } => p.sugars !== null && p.score !== null)
-    .map((p) => ({ x: p.sugars, y: p.score }));
+  // 성분마다 독립적으로 NULL을 걸러 표본을 만든다 — 나트륨만 미측정인 제품도
+  // 당류 상관에는 남아야 하므로 성분별로 따로 필터링한다.
+  const nutrientCorrelations: NutrientCorrelation[] = (["sugars", "sodium", "satfat", "energy"] as const).map(
+    (key) => ({
+      key,
+      points: points
+        .filter((p) => p[key] !== null && p.score !== null)
+        .map((p) => ({ x: p[key] as number, y: p.score as number })),
+    }),
+  );
 
   const trend = db
     .select()
@@ -374,5 +423,5 @@ export function getCategoryAnalytics(db: Db, categoryId: string): CategoryAnalyt
     .orderBy(desc(categoryAggSnapshot.snapshotDate))
     .all();
 
-  return { distribution, gradableCount, correlationPoints, trend };
+  return { distribution, gradableCount, nutrientCorrelations, trend };
 }

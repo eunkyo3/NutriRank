@@ -58,7 +58,8 @@ export default function CategoryComparisonPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">카테고리 비교</h1>
+        <p className="text-xs italic text-gray-400">이 화면이 답하는 질문 · 무엇을 먹느냐는 얼마나 중요한가?</p>
+        <h1 className="mt-1 text-2xl font-bold">카테고리 비교</h1>
         <p className="mt-1 text-sm text-gray-500">
           소비자 카테고리 {rows.length}종을 평균 건강 점수로 비교합니다. 점수는 낮을수록 건강합니다.
         </p>
@@ -89,6 +90,7 @@ export default function CategoryComparisonPage() {
                 <th className="py-2">카테고리</th>
                 <th className="py-2 text-right">제품수</th>
                 <th className="py-2 text-right">평균 점수</th>
+                <th className="py-2 text-right">점수 범위</th>
                 <th className="py-2 text-right">D·E 비율</th>
                 <th className="py-2 text-right">평균 당류</th>
                 <th className="py-2 text-right">평균 나트륨</th>
@@ -112,6 +114,11 @@ export default function CategoryComparisonPage() {
                   </td>
                   <td className="py-2 text-right font-medium tabular-nums">
                     {formatNutrient(r.avgHealthScore)}
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {r.minHealthScore === null || r.maxHealthScore === null
+                      ? '—'
+                      : `${formatNutrient(r.minHealthScore)} ~ ${formatNutrient(r.maxHealthScore)}`}
                   </td>
                   <td className="py-2 text-right tabular-nums">
                     {r.worstShare === null ? '—' : `${r.worstShare.toFixed(1)}%`}

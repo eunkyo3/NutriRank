@@ -2,10 +2,10 @@
 // 오름차순(건강한 순, ADR-0003)으로 렌더. gradable=1만 포함(쿼리에서 보장).
 import { notFound } from 'next/navigation'
 import { CONSUMER_CATEGORY_SEED } from '@/db/seed'
-import { getCategory, getCategoryRankings } from '@/db/queries'
+import { getCategory, getCategoryRankings, getCategoryScoreRange } from '@/db/queries'
 import { tryGetReadDb } from '@/db/client'
 import { DataPendingNotice, EmptyResult, GradeBadge } from '@/app/_components/ui'
-import { HEALTH_GRADES } from '@/lib/display'
+import { formatNutrient, HEALTH_GRADES } from '@/lib/display'
 
 const KNOWN_IDS = new Set<string>(CONSUMER_CATEGORY_SEED.map((c) => c.id))
 
@@ -39,6 +39,9 @@ export default async function CategoryRankingPage({
     : null
   const label = category?.name ?? CONSUMER_CATEGORY_SEED.find((c) => c.id === categoryId)?.name ?? categoryId
   const totalPages = ranking ? Math.max(1, Math.ceil(ranking.total / PAGE_SIZE)) : 1
+  // 카테고리 전체(필터 무관) 점수 범위 — 같은 카테고리 안에서도 선택에 따라 격차가
+  // 크다는 서비스 존재 이유(H3)를 상단 한 줄로 정당화한다.
+  const scoreRange = db ? getCategoryScoreRange(db, categoryId) : null
 
   // 필터를 유지한 채 페이지만 바꾸기 위한 링크 빌더.
   const href = (next: { page?: number; grade?: string | null; order?: string | null }) => {
@@ -55,12 +58,22 @@ export default async function CategoryRankingPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">카테고리 순위: {label}</h1>
+        <p className="text-xs italic text-gray-400">이 화면이 답하는 질문 · 같은 카테고리 안에서 선택은 얼마나 중요한가?</p>
+        <h1 className="mt-1 text-2xl font-bold">카테고리 순위: {label}</h1>
         <p className="mt-1 text-sm text-gray-500">
           {order === 'desc'
             ? '가장 덜 건강한 제품부터 봅니다. 건강 점수가 높을수록 덜 건강합니다.'
             : '건강 점수가 낮을수록(건강할수록) 상위입니다.'}
         </p>
+        {scoreRange && scoreRange.min !== scoreRange.max && (
+          <p className="mt-2 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+            이 카테고리의 점수 범위는{' '}
+            <strong className="tabular-nums">
+              {formatNutrient(scoreRange.min)} ~ {formatNutrient(scoreRange.max)}
+            </strong>{' '}
+            — 무엇을 고르느냐에 따라 이만큼 달라집니다. 같은 카테고리 안에서도 제품 선택만으로 더 건강해질 수 있습니다.
+          </p>
+        )}
       </div>
 
       <CategorySwitcher activeId={categoryId} />

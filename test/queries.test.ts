@@ -9,7 +9,9 @@ import type { ReadDb } from "@/db/client";
 import {
   getCategories,
   getCategoryAnalytics,
+  getCategoryComparison,
   getCategoryRankings,
+  getCategoryScoreRange,
   getOverviewStats,
   getProductDetail,
   searchProducts,
@@ -190,14 +192,57 @@ describe("getOverviewStats (홈 집계)", () => {
 });
 
 describe("getCategoryAnalytics (§4.4)", () => {
-  it("returns grade distribution, correlation points (NULL excluded) and trend", () => {
+  it("returns grade distribution, per-nutrient correlation points (NULL excluded) and trend", () => {
     const a = getCategoryAnalytics(db, "snack_chip");
     const dist = Object.fromEntries(a.distribution.map((d) => [d.grade, d.count]));
     expect(dist).toMatchObject({ A: 1, E: 1 });
     expect(a.gradableCount).toBe(2);
-    // UNGRAD (null sugars) excluded from correlation points.
-    expect(a.correlationPoints).toHaveLength(2);
+    // 4 nutrients, in fixed order.
+    expect(a.nutrientCorrelations.map((n) => n.key)).toEqual(["sugars", "sodium", "satfat", "energy"]);
     // Two snapshots → trend has ≥2 rows.
     expect(a.trend.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // H4: 상관 표본은 gradable 제품만(건강 점수가 있어야 짝을 이룸). 등급 산출은 4성분이
+  // 모두 측정돼야 가능하므로 gradable 제품은 4성분 모두 non-NULL — 네 표본 모두 gradableCount.
+  // UNGRAD(당류 미측정 → ungradable)는 점수가 없어 어느 성분 상관에도 들어가지 않는다.
+  it("builds one (nutrient, score) sample per gradable product, NULL excluded", () => {
+    const a = getCategoryAnalytics(db, "snack_chip");
+    const by = Object.fromEntries(a.nutrientCorrelations.map((n) => [n.key, n]));
+    for (const key of ["sugars", "sodium", "satfat", "energy"] as const) {
+      // gradable 2개(통곡물칩·버터비스킷)만, UNGRAD 제외.
+      expect(by[key].points).toHaveLength(a.gradableCount);
+    }
+    // 표본은 (성분값, 점수) 쌍이다 — 버터비스킷 당류 35 / 나트륨 200이 각 성분 표본에 들어 있어야 한다.
+    expect(by.sugars.points.some((p) => p.x === 35)).toBe(true);
+    expect(by.sodium.points.some((p) => p.x === 200)).toBe(true);
+  });
+});
+
+describe("getCategoryComparison — 점수 범위 (H3)", () => {
+  it("attaches the category's min/max health score from category_ranking", () => {
+    const rows = getCategoryComparison(db);
+    const snack = rows.find((r) => r.categoryId === "snack_chip");
+    // 통곡물칩(A, 최저 점수)과 버터비스킷(E, 최고 점수)이 min/max를 이룬다.
+    expect(snack?.minHealthScore).not.toBeNull();
+    expect(snack?.maxHealthScore).not.toBeNull();
+    expect((snack?.maxHealthScore as number) > (snack?.minHealthScore as number)).toBe(true);
+  });
+});
+
+describe("getCategoryScoreRange (H3)", () => {
+  it("returns the min/max ranked health score for a category", () => {
+    const range = getCategoryScoreRange(db, "snack_chip");
+    expect(range).not.toBeNull();
+    expect(range?.max).toBeGreaterThan(range?.min as number);
+    // 카테고리 비교 쿼리와 같은 값이어야 한다(같은 category_ranking 집계).
+    const fromComparison = getCategoryComparison(db).find((r) => r.categoryId === "snack_chip");
+    expect(range?.min).toBe(fromComparison?.minHealthScore);
+    expect(range?.max).toBe(fromComparison?.maxHealthScore);
+  });
+
+  it("returns null for a category with no ranking rows", () => {
+    // 순위 데이터가 없는 시드 카테고리(픽스처에 제품 없음)는 NULL.
+    expect(getCategoryScoreRange(db, "chocolate")).toBeNull();
   });
 });
