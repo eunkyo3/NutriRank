@@ -180,6 +180,41 @@ describe("determinism, rationale & monotonicity (§6/§8/§10)", () => {
     expect(rat[0].points).toBe(10);
   });
 
+  it("rationale includes positive contributors (protein/fibre) tagged kind=positive (§10)", () => {
+    // A=6 (<11, no cap): sugars 10→2, satfat 3→2, 200mg→0.5g salt→2 (energy 70kcal→0).
+    // positives counted: protein 8→3, fibre 4→1.
+    const r = gradeProduct(
+      nutrients({ energy_kcal: 70, sugars_g: 10, satfat_g: 3, sodium_mg: 200, fiber_g: 4, protein_g: 8 }),
+      "solid",
+    );
+    const rat = r.rationale ?? [];
+    const negatives = rat.filter((e) => e.kind === "negative");
+    const positives = rat.filter((e) => e.kind === "positive");
+    // 감점: 상위 기여 3개, 모두 양수, points 뒤에 kind=negative.
+    expect(negatives.map((e) => e.nutrient).sort()).toEqual(["salt", "satfat", "sugars"]);
+    for (const e of negatives) expect(e.points).toBeGreaterThan(0);
+    // 가점: 0점 초과인 단백질·식이섬유가 kind=positive 로 담긴다.
+    expect(positives).toEqual(
+      expect.arrayContaining([
+        { nutrient: "protein", points: 3, kind: "positive" },
+        { nutrient: "fibre", points: 1, kind: "positive" },
+      ]),
+    );
+  });
+
+  it("excludes protein from rationale when the protein cap fires, keeps fibre (§6/§10)", () => {
+    // A=22 (≥11 → cap): energy 4, satfat 10, salt 8, sugars 0. protein 25 dropped
+    // from the score AND from the rationale; fibre 4→1 still a positive contributor.
+    const r = gradeProduct(
+      nutrients({ energy_kcal: 335, sugars_g: 1, satfat_g: 20, sodium_mg: 720, fiber_g: 4, protein_g: 25 }),
+      "solid",
+    );
+    const rat = r.rationale ?? [];
+    const positives = rat.filter((e) => e.kind === "positive");
+    expect(positives.map((e) => e.nutrient)).toEqual(["fibre"]);
+    expect(rat.some((e) => e.nutrient === "protein")).toBe(false);
+  });
+
   it("grade never contradicts the health-score axis (§8, ADR-0003)", () => {
     // Better grade ⇒ lower (healthier) score within a product type.
     const order: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4 };

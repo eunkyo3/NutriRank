@@ -7,7 +7,7 @@ import {
   formatNutrient,
   productTypeLabel,
   rankPercentileLabel,
-  rationaleToPhrase,
+  rationaleEntries,
   referenceAmountLabel,
   ungradableReasons,
 } from '@/lib/display'
@@ -34,7 +34,9 @@ export default async function ProductDetailPage({
 
   const { product, nutrient, grade, categoryName, rank, categoryTotal } = detail
   const gradable = grade?.gradable === 1
-  const rationale = rationaleToPhrase(grade?.rationale ?? null)
+  const rationale = rationaleEntries(grade?.rationale ?? null)
+  const negatives = rationale.filter((e) => e.kind === 'negative')
+  const positives = rationale.filter((e) => e.kind === 'positive')
   const refLabel = referenceAmountLabel(product.productType, product.referenceRaw)
   const percentile = rank !== null ? rankPercentileLabel(rank, categoryTotal) : null
 
@@ -78,7 +80,29 @@ export default async function ProductDetailPage({
             </p>
           </div>
         )}
-        {gradable && rationale && <p className="mt-3 text-sm text-gray-600">{rationale}</p>}
+        {/* 등급 근거: 감점(점수를 끌어올린 성분, 빨강)과 가점(점수를 낮춘 성분, 초록)을
+            색으로 구분한다. 도움말의 감점/가점 색 관례(text-red-700 / text-green-700)를 따른다.
+            구 형식(감점만) rationale은 negatives만 채워지므로 가점 줄이 그냥 빠진다. */}
+        {gradable && (negatives.length > 0 || positives.length > 0) && (
+          <div className="mt-3 space-y-1.5 text-sm">
+            {negatives.length > 0 && (
+              <p>
+                <span className="font-medium text-red-700">등급에 크게 기여한 성분</span>
+                <span className="text-gray-600">
+                  : {negatives.map((e) => `${e.label}(${e.points}점)`).join(', ')}
+                </span>
+              </p>
+            )}
+            {positives.length > 0 && (
+              <p>
+                <span className="font-medium text-green-700">점수를 낮춘 가점 성분</span>
+                <span className="text-gray-600">
+                  : {positives.map((e) => `${e.label}(${e.points}점)`).join(', ')}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       {/* 영양성분표 (기준량 명시, 미측정 '—') */}

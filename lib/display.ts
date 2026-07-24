@@ -35,13 +35,16 @@ export function gradeBarClass(grade: HealthGrade): string {
 }
 
 // Nutrient / rationale keys → Korean labels. rationale keys come from
-// lib/grading buildRationale ("energy"/"sugars"/"satfat"/"salt"); ungradable
-// reasons come from NutrientInput keys ("energy_kcal" …) + sentinels.
+// lib/grading buildRationale — 감점("energy"/"sugars"/"satfat"/"salt")과
+// 가점("fibre"/"protein"). ungradable reasons come from NutrientInput keys
+// ("energy_kcal" …) + sentinels.
 const RATIONALE_LABEL_KO: Record<string, string> = {
   energy: "에너지",
   sugars: "당류",
   satfat: "포화지방",
   salt: "나트륨",
+  fibre: "식이섬유",
+  protein: "단백질",
 };
 
 const UNGRADABLE_LABEL_KO: Record<string, string> = {
@@ -55,27 +58,36 @@ const UNGRADABLE_LABEL_KO: Record<string, string> = {
 export interface RationaleEntry {
   nutrient: string;
   points: number;
+  // 구 형식 rationale(감점만, kind 없음)은 negative로 취급한다.
+  kind?: "negative" | "positive";
 }
 
-// rationale JSON → human sentence (§4.2, §5). Deterministic, no exaggeration
-// (§9 risk). Returns null when there is nothing to explain.
-export function rationaleToPhrase(rationaleJson: string | null): string | null {
-  if (!rationaleJson) return null;
+// 사람이 읽는 표시용 근거 항목: 한글 라벨 + 점수 + 감점/가점 구분.
+export interface RationaleDisplayEntry {
+  label: string;
+  points: number;
+  kind: "negative" | "positive";
+}
+
+// rationale JSON → 유효한 표시 항목 배열. 감점/가점을 kind로 구분하되, kind 없는 구
+// 형식은 감점으로 본다(방어). 화면(제품 상세)이 색으로 구분해 렌더할 수 있게 구조를
+// 그대로 넘긴다. 잘못된 JSON은 빈 배열.
+export function rationaleEntries(rationaleJson: string | null): RationaleDisplayEntry[] {
+  if (!rationaleJson) return [];
   let entries: RationaleEntry[];
   try {
     entries = JSON.parse(rationaleJson);
   } catch {
-    return null;
+    return [];
   }
-  if (!Array.isArray(entries) || entries.length === 0) return null;
-  const parts = entries
+  if (!Array.isArray(entries)) return [];
+  return entries
     .filter((e) => e && typeof e.nutrient === "string" && e.points > 0)
-    .map((e) => `${RATIONALE_LABEL_KO[e.nutrient] ?? e.nutrient}(${e.points}점)`);
-  if (parts.length === 0) return null;
-  // CONTEXT.md '등급 근거' 문구를 그대로 사용한다. rationale에는 감점 성분만 담기므로
-  // (buildRationale은 negatives만 받음) 등급과 무관하게 참인 표현이어야 한다 — A등급
-  // 제품에 "등급을 낮춘"이라고 쓰면 사실과 어긋난다.
-  return `등급에 크게 기여한 성분: ${parts.join(", ")}`;
+    .map((e) => ({
+      label: RATIONALE_LABEL_KO[e.nutrient] ?? e.nutrient,
+      points: e.points,
+      kind: e.kind === "positive" ? ("positive" as const) : ("negative" as const),
+    }));
 }
 
 // ungradable_reason JSON → Korean labels for the "등급 산출 불가" block (§4.2).

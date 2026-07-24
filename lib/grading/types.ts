@@ -14,10 +14,13 @@ export interface NutrientInput {
   protein_g: number | null;
 }
 
-// 등급 근거: 등급에 크게 기여한 영양소를 기여도 내림차순으로 나열 (grading-spec §10).
+// 등급 근거: 등급에 기여한 영양소를 나열 (grading-spec §10). kind로 감점(negative)/
+// 가점(positive)을 구분한다 — points는 항상 양수 크기(부호 아님)이고, 방향은 kind가
+// 정한다. 감점은 상위 기여 순, 가점(단백질·식이섬유)은 0점 초과인 것만 담는다.
 export interface RationaleEntry {
   nutrient: string;
   points: number;
+  kind: "negative" | "positive";
 }
 
 export interface GradeResult {

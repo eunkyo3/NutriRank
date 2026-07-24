@@ -1,12 +1,12 @@
 // Presentation helpers (.omc/plans/mvp-scope-screens.md §5, §8 AC): grade badge,
-// 미측정 '—' vs measured 0, rationale phrasing, ungradable reasons.
+// 미측정 '—' vs measured 0, rationale 감점/가점 entries, ungradable reasons.
 import { describe, expect, it } from "vitest";
 import {
   formatNutrient,
   gradeBadgeClass,
   productTypeLabel,
   rankPercentileLabel,
-  rationaleToPhrase,
+  rationaleEntries,
   referenceAmountLabel,
   ungradableReasons,
 } from "@/lib/display";
@@ -70,30 +70,30 @@ describe("gradeBadgeClass", () => {
   });
 });
 
-describe("rationaleToPhrase (§4.2)", () => {
-  it("builds a Korean sentence from the top contributors", () => {
-    const phrase = rationaleToPhrase(JSON.stringify([
-      { nutrient: "sugars", points: 9 },
-      { nutrient: "salt", points: 6 },
+describe("rationaleEntries — structured 감점/가점 for the detail screen (§4.2)", () => {
+  it("splits negatives and positives with Korean labels and kind", () => {
+    const entries = rationaleEntries(JSON.stringify([
+      { nutrient: "sugars", points: 9, kind: "negative" },
+      { nutrient: "protein", points: 3, kind: "positive" },
+      { nutrient: "fibre", points: 1, kind: "positive" },
     ]));
-    expect(phrase).toContain("당류(9점)");
-    expect(phrase).toContain("나트륨(6점)");
+    expect(entries).toEqual([
+      { label: "당류", points: 9, kind: "negative" },
+      { label: "단백질", points: 3, kind: "positive" },
+      { label: "식이섬유", points: 1, kind: "positive" },
+    ]);
   });
 
-  // rationale에는 감점 성분만 담기므로(buildRationale은 negatives만 받음) 문구가
-  // 등급과 무관하게 참이어야 한다. A등급 제품에 "등급을 낮춘"은 사실과 어긋난다.
-  it("uses grade-neutral wording and leaves no unresolved particle placeholder", () => {
-    const phrase = rationaleToPhrase(JSON.stringify([{ nutrient: "energy", points: 2 }]));
-    expect(phrase).not.toContain("이(가)");
-    expect(phrase).not.toContain("낮춘");
-    expect(phrase).toBe("등급에 크게 기여한 성분: 에너지(2점)");
+  // 구 형식 rationale(감점만, kind 없음)이 남아 있어도 감점으로 취급해 화면이 안 깨진다.
+  it("treats legacy entries without kind as negative", () => {
+    const entries = rationaleEntries(JSON.stringify([{ nutrient: "salt", points: 6 }]));
+    expect(entries).toEqual([{ label: "나트륨", points: 6, kind: "negative" }]);
   });
 
-  it("returns null for empty, missing, or malformed rationale", () => {
-    expect(rationaleToPhrase(null)).toBeNull();
-    expect(rationaleToPhrase("[]")).toBeNull();
-    expect(rationaleToPhrase("not json")).toBeNull();
-    expect(rationaleToPhrase(JSON.stringify([{ nutrient: "sugars", points: 0 }]))).toBeNull();
+  it("drops zero-point entries and returns [] for null/malformed", () => {
+    expect(rationaleEntries(JSON.stringify([{ nutrient: "sugars", points: 0, kind: "negative" }]))).toEqual([]);
+    expect(rationaleEntries(null)).toEqual([]);
+    expect(rationaleEntries("nope")).toEqual([]);
   });
 });
 

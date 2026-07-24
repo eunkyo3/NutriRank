@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "ingest": "tsx scripts/ingest/index.ts",
+    "regrade": "tsx scripts/regrade/index.ts",
     "build:ingest": "esbuild scripts/ingest/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/ingest.mjs --external:better-sqlite3 --external:drizzle-orm --external:drizzle-orm/*"
   },
   "dependencies": {

@@ -88,22 +88,38 @@ export function gradeProduct(
       : solidGradeFromScore(healthScore);
 
   const rationale = buildRationale({
-    energy: energyPts,
-    sugars: sugarsPts,
-    satfat: satfatPts,
-    salt: saltPts,
+    negatives: {
+      energy: energyPts,
+      sugars: sugarsPts,
+      satfat: satfatPts,
+      salt: saltPts,
+    },
+    // 가점: 식이섬유는 항상, 단백질은 cap이 걸리지 않았을 때만(§6 protein cap). cap이면
+    // 점수에서 빠졌으므로 근거에도 넣지 않는다. fruit/veg는 v1에서 항상 0이라 제외된다.
+    positives: {
+      fibre: fibrePts,
+      ...(proteinCapped ? {} : { protein: proteinPts }),
+    },
   });
 
   return { gradable: true, healthScore, grade, rationale };
 }
 
-// §10: the top contributing negative components (points desc), so the UI can
-// explain *why* a product got its grade (e.g. "당류 9, 나트륨 6"). Ties break by
-// component order (energy, sugars, satfat, salt) for determinism.
-function buildRationale(negatives: Record<string, number>): RationaleEntry[] {
-  return Object.entries(negatives)
-    .map(([nutrient, points]) => ({ nutrient, points }))
+// §10: 등급 근거 = 감점 상위 기여 성분(points desc, ≤3) + 가점 성분(0점 초과). 감점은
+// 왜 점수가 올라갔는지, 가점은 무엇이 점수를 낮췄는지 UI가 함께 설명할 수 있게 한다.
+// 감점 동점은 성분 순서(energy, sugars, satfat, salt)로 깨져 결정적이다.
+function buildRationale(components: {
+  negatives: Record<string, number>;
+  positives: Record<string, number>;
+}): RationaleEntry[] {
+  const negatives = Object.entries(components.negatives)
+    .map(([nutrient, points]) => ({ nutrient, points, kind: "negative" as const }))
     .filter((entry) => entry.points > 0)
     .sort((a, b) => b.points - a.points)
     .slice(0, 3);
+  const positives = Object.entries(components.positives)
+    .map(([nutrient, points]) => ({ nutrient, points, kind: "positive" as const }))
+    .filter((entry) => entry.points > 0)
+    .sort((a, b) => b.points - a.points);
+  return [...negatives, ...positives];
 }
