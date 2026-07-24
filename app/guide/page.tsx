@@ -3,6 +3,7 @@
 import type { Metadata } from 'next'
 import { HEALTH_GRADES } from '@/lib/display'
 import { GradeBadge } from '@/app/_components/ui'
+import { CONSUMER_CATEGORY_SEED } from '@/db/seed'
 
 export const metadata: Metadata = { title: 'NutriRank — 도움말' }
 
@@ -83,7 +84,7 @@ export default function GuidePage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">왜 D·E 등급이 이렇게 많나요?</h2>
         <p className="text-sm text-gray-600">
-          실제로 수록 제품의 약 <strong>80%가 D·E</strong>입니다. 오류가 아니라 당연한 결과입니다. Nutri-Score는{' '}
+          실제로 수록 제품의 약 <strong>76%가 D·E</strong>입니다. 오류가 아니라 당연한 결과입니다. Nutri-Score는{' '}
           <strong>모든 가공식품에 같은 절대 기준</strong>을 적용하는데, NutriRank가 다루는 범위는 과자와 음료뿐입니다.
           이 식품군은 설탕·포화지방·나트륨이 많아 애초에 낮은 등급대에 몰립니다. 채소·통곡물까지 포함한 전체 식품에서라면
           A·B가 훨씬 많이 나옵니다.
@@ -128,7 +129,7 @@ export default function GuidePage() {
             볼 수도 있습니다.
           </GuideRow>
           <GuideRow title="🆚 카테고리 비교" href="/analytics">
-            6개 카테고리를 평균 건강 점수·D·E 비율·평균 성분으로 나란히 대조합니다. 어느 카테고리가 더 나쁜지, 그 원인이
+            {CONSUMER_CATEGORY_SEED.length}개 카테고리를 평균 건강 점수·D·E 비율·평균 성분으로 나란히 대조합니다. 어느 카테고리가 더 나쁜지, 그 원인이
             무엇인지 한 화면에서 봅니다.
           </GuideRow>
           <GuideRow title="📊 집계 대시보드" href="/analytics/carbonated">

@@ -11,7 +11,7 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-// 소비자 카테고리 (§3) — v1 폐쇄 목록 6개, product_type으로 음료/고형식품 분리.
+// 소비자 카테고리 (§3) — 폐쇄 목록(시드가 단일 출처), product_type으로 음료/고형식품 분리.
 export const consumerCategory = sqliteTable(
   "consumer_category",
   {
